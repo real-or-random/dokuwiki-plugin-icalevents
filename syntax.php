@@ -132,7 +132,10 @@ class syntax_plugin_iCalEvents extends DokuWiki_Syntax_Plugin
      */
     function _parseIcs($url, $from, $previewSec) {
 	    global $conf;
-	
+
+        // must reset error in case we have multiple calendars on page
+        $this->error = false;
+
         $http    = new DokuHTTPClient();
         if (!$http->get($url)) {
           $this->error = "Could not get '$url': ".$http->status;
