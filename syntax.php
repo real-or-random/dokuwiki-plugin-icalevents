@@ -74,20 +74,32 @@ class syntax_plugin_iCalEvents extends DokuWiki_Syntax_Plugin
         $previewSec = 60*24*3600;  # two month
       }
       
+      # Take dateformat from params, or
+      # If dateformat is set in plugin configuration ('dformat'), then use it.
+      # Otherwise fall back to dokuwiki's default dformat from the global /conf/dokuwiki.php.
+      if (!empty($params['dformat'])) {
+        $dateFormat = $params['dformat'];
+      } else {
+        global $conf;
+        $dateFormat = $this->getConf('dformat') ? $this->getConf('dformat') : $conf['dformat'];
+      }
+
+      $showEndDates = !empty($params['showEndDates']);
+      
       #echo "url=$icsURL from = $from    previewSec = $previewSec<br>";
       
-      return array($icsURL, $from, $previewSec); 
+      return array($icsURL, $from, $previewSec, $dateFormat, $showEndDates); 
     }
     
     /**
      * loads the ics file via HTTP, parses it and renders an HTML table.
      */
     function render($mode, &$renderer, $data) {
-      list($url, $from, $previewSec) = $data;
+      list($url, $from, $previewSec, $dateFormat, $showEndDates) = $data;
       $ret = '';
       if($mode == 'xhtml'){
 	      # parse the ICS file
-          $entries = $this->_parseIcs($url, $from, $previewSec);
+          $entries = $this->_parseIcs($url, $from, $previewSec, $dateFormat);
           if ($this->error) {
             $renderer->doc .= "Error in Plugin iCalEvents: ".$this->error;
             return true;
@@ -103,7 +115,7 @@ class syntax_plugin_iCalEvents extends DokuWiki_Syntax_Plugin
           foreach ($entries as $entry) {
             $rowCount++;
             $ret .= '<tr>';
-			if ($this->getConf('showEndDates')) {
+			if ($showEndDates || $this->getConf('showEndDates')) {
 				$ret .= '<td>'.$entry['startdate'].' - '.$entry['enddate'].'</td>';
 			} else {
 				$ret .= '<td>'.$entry['startdate'];
@@ -130,9 +142,7 @@ class syntax_plugin_iCalEvents extends DokuWiki_Syntax_Plugin
      * @param previewSec preview range also in seconds 
      * @return an array of entries sorted by their startdate
      */
-    function _parseIcs($url, $from, $previewSec) {
-	    global $conf;
-
+    function _parseIcs($url, $from, $previewSec, $dateFormat) {
         // must reset error in case we have multiple calendars on page
         $this->error = false;
 
@@ -144,10 +154,6 @@ class syntax_plugin_iCalEvents extends DokuWiki_Syntax_Plugin
         $content    = $http->resp_body;
         $entries    = array();
         
-		# If dateformat is set in plugin configuration ('dformat'), then use it.
-		# Otherwise fall back to dokuwiki's default dformat from the global /conf/dokuwiki.php.
-		$dateFormat = $this->getConf('dformat') ? $this->getConf('dformat') : $conf['dformat'];
-				
         # regular expressions for items that we want to extract from the iCalendar file
         $regex_vevent      = '/BEGIN:VEVENT(.*?)END:VEVENT/s';
         $regex_summary     = '/SUMMARY:(.*?)\n/';
