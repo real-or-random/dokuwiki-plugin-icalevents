@@ -59,16 +59,19 @@ class syntax_plugin_iCalEvents extends DokuWiki_Syntax_Plugin
       $match = substr($match, 13, -2); // strip {{iCalEvents> from start and }} from end
       list($icsURL, $flagStr) = explode('#', $match);
       parse_str($flagStr, $params);
-            
-      if ($params['from'] == 'today') {
-        $from = time();
-      } else if (preg_match('#(\d\d)/(\d\d)/(\d\d\d\d)#', $params['from'], $fromDate)) {
-	    # must be MM/dd/yyyy
-        $from = mktime(0, 0, 0, $fromDate[1], $fromDate[2], $fromDate[3]);
-      } else if (preg_match('/\d+/', $params['from'])) {
-	    $from = $params['from']; 
+
+      $from = null;
+      if (!empty($params['from'])) {
+          // unix timestamp: handle specially for backward compatability
+          if (preg_match('/^\d+$/', $params['from'])) {
+            $from = (int )$params['from'];
+          } else {
+            // anything that strtotime can parse: 'today', '1 week ago', etc
+            $from = strtotime($params['from']);
+          }
 	  }
-      if ($params['previewDays']) {
+
+      if (!empty($params['previewDays'])) {
         $previewSec = $params['previewDays']*24*3600;
       } else {
         $previewSec = 60*24*3600;  # two month
@@ -86,7 +89,7 @@ class syntax_plugin_iCalEvents extends DokuWiki_Syntax_Plugin
 
       $showEndDates = !empty($params['showEndDates']);
       
-      #echo "url=$icsURL from = $from    previewSec = $previewSec<br>";
+      #echo "url=$icsURL flags=$flagStr; from = $from;    previewSec = $previewSec; dateFormat=$dateFormat;<br/>";
       
       return array($icsURL, $from, $previewSec, $dateFormat, $showEndDates); 
     }
