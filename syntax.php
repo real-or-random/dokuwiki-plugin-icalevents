@@ -30,7 +30,7 @@ require_once(DOKU_PLUGIN.'syntax.php');
  *           Default ist 60 days.
  * 3. 'showEndDates' to show end date or not defaults to value set in plugin config
  * 4. 'showCurrentWeek' highlight events matching current week.
- *           currently assumes all-day events start at 12:00, like in Google Calendar
+ *           currently assumes all-day events end at 12:00 local time, like in Google Calendar
  *
  * <code>from <= eventdate <= from+(previewDays*24*60*3600)</code>
  *
@@ -121,8 +121,8 @@ class syntax_plugin_iCalEvents extends DokuWiki_Syntax_Plugin
                   '<th>'.$this->getLang('description').'</th>'.
                   '<th>'.$this->getLang('where').'</th>'.
                   '</tr>'.NL;
-          $weekStart = strtotime("0 week ago 12:00");
-          $weekEnd = strtotime("1 weeks 12:00");
+          $weekStart = strtotime("last monday 00:00");
+          $weekEnd = strtotime("next monday 12:00");
           foreach ($entries as $entry) {
             $rowCount++;
             $ret .= '<tr';
