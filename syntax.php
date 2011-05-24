@@ -88,17 +88,18 @@ class syntax_plugin_iCalEvents extends DokuWiki_Syntax_Plugin
       }
 
       $showEndDates = !empty($params['showEndDates']);
+      $showCurrentWeek = !empty($params['showCurrentWeek']);
       
-      #echo "url=$icsURL flags=$flagStr; from = $from;    previewSec = $previewSec; dateFormat=$dateFormat;<br/>";
+      #echo "url=$icsURL flags=$flagStr; from = $from;    previewSec = $previewSec; dateFormat=$dateFormat; showCurrentWeek=$showCurrentWeek<br/>";
       
-      return array($icsURL, $from, $previewSec, $dateFormat, $showEndDates); 
+      return array($icsURL, $from, $previewSec, $dateFormat, $showEndDates, $showCurrentWeek);
     }
     
     /**
      * loads the ics file via HTTP, parses it and renders an HTML table.
      */
     function render($mode, &$renderer, $data) {
-      list($url, $from, $previewSec, $dateFormat, $showEndDates) = $data;
+      list($url, $from, $previewSec, $dateFormat, $showEndDates, $showCurrentWeek) = $data;
       $ret = '';
       if($mode == 'xhtml'){
 	      # parse the ICS file
@@ -115,9 +116,15 @@ class syntax_plugin_iCalEvents extends DokuWiki_Syntax_Plugin
                   '<th>'.$this->getLang('description').'</th>'.
                   '<th>'.$this->getLang('where').'</th>'.
                   '</tr>'.NL;
+          $weekStart = strtotime("0 week ago 12:00");
+          $weekEnd = strtotime("1 weeks 12:00");
           foreach ($entries as $entry) {
             $rowCount++;
-            $ret .= '<tr>';
+            $ret .= '<tr';
+            if ($showCurrentWeek && ($entry['startunixdate'] >= $weekStart && $entry['endunixdate'] <= $weekEnd)) {
+                $ret .= ' style="background-color: red !important"';
+            }
+            $ret .= '>';
 			if ($showEndDates || $this->getConf('showEndDates')) {
 				$ret .= '<td>'.$entry['startdate'].' - '.$entry['enddate'].'</td>';
 			} else {
