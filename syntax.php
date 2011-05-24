@@ -21,7 +21,7 @@ require_once(DOKU_PLUGIN.'syntax.php');
  *
  * Usage: {{iCalEvents>http://host/myCalendar.ics#from=today&previewDays=30}}
  * 
- * You can filter the events that are shown with two parametes:
+ * You can filter the events that are shown with some arameters:
  * 1. 'from' a date from which on to show events. any text that strformat can accept
  *           for example "from=today".
  *           If 'from' is omitted, then all events are shown.
@@ -29,6 +29,8 @@ require_once(DOKU_PLUGIN.'syntax.php');
  * 2. 'previewDays' amount of days to preview into the future.
  *           Default ist 60 days.
  * 3. 'showEndDates' to show end date or not defaults to value set in plugin config
+ * 4. 'showCurrentWeek' highlight events matching current week.
+ *           currently assumes all-day events start at 12:00, like in Google Calendar
  *
  * <code>from <= eventdate <= from+(previewDays*24*60*3600)</code>
  *
