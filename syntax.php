@@ -47,7 +47,7 @@ class syntax_plugin_iCalEvents extends DokuWiki_Syntax_Plugin
         'date'   => '2011-05-24',
         'name'   => 'iCalEvents',
         'desc'   => 'Parses an iCalalendar .ics file and renders it as an HTML table',
-        'url'    => 'http://www.doogie.de',
+        'url'    => 'http://www.dokuwiki.org/plugin:icalevents',
       );
     }
  
