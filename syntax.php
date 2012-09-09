@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin iCalEvents: Renders an iCal .ics file as an HTML table.
- * 
+ *
  * @license    GPL 2 (http://www.gnu.org/licenses/gpl.html)
  * @version    2.0.1
  * @date       May 2011
@@ -11,16 +11,16 @@
 
 // must be run within Dokuwiki
 if(!defined('DOKU_INC')) die();
- 
+
 if(!defined('DOKU_PLUGIN')) define('DOKU_PLUGIN',DOKU_INC.'lib/plugins/');
 require_once(DOKU_PLUGIN.'syntax.php');
-  
+
 /**
  * This plugin gets an iCalendar file via HTTP and then
  * parses this file into an HTML table.
  *
  * Usage: {{iCalEvents>http://host/myCalendar.ics#from=today&previewDays=30}}
- * 
+ *
  * You can filter the events that are shown with some arameters:
  * 1. 'from' a date from which on to show events. any text that strformat can accept
  *           for example "from=today".
@@ -35,22 +35,11 @@ require_once(DOKU_PLUGIN.'syntax.php');
  * <code>from <= eventdate <= from+(previewDays*24*60*3600)</code>
  *
  * See also global configuration settings in plugins/iCalEvents/conf/default.php
- * 
+ *
  * @see http://de.wikipedia.org/wiki/ICalendar
  */
 class syntax_plugin_iCalEvents extends DokuWiki_Syntax_Plugin
 { 
-    function getInfo() {
-      return array(
-        'author' => 'Robert Rackl, Elan Ruusamäe',
-        'email'  => 'wiki@doogie.de, glen@delfi.ee',
-        'date'   => '2011-05-24',
-        'name'   => 'iCalEvents',
-        'desc'   => 'Parses an iCalalendar .ics file and renders it as an HTML table',
-        'url'    => 'http://www.dokuwiki.org/plugin:icalevents',
-      );
-    }
- 
     // implement necessary Dokuwiki_Syntax_Plugin methods
     function getType() { return 'substition'; }
     function getSort() { return 42; }
