@@ -50,7 +50,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin
      */
     function handle($match, $state, $pos, &$handler) {
       $match = substr($match, 13, -2); // strip {{iCalEvents> from start and }} from end
-      list($icsURL, $flagStr) = explode('#', $match);
+      list($icsURL, $flagStr) = explode('#', $match, 2);
       parse_str($flagStr, $params);
 
       $from = null;
