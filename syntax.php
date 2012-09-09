@@ -42,7 +42,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin
     // implement necessary Dokuwiki_Syntax_Plugin methods
     function getType() { return 'substition'; }
     function getSort() { return 42; }
-    function connectTo($mode) { $this->Lexer->addSpecialPattern('\{\{iCalEvents>.*?\}\}',$mode,'plugin_iCalEvents'); }
+    function connectTo($mode) { $this->Lexer->addSpecialPattern('\{\{iCalEvents>.*?\}\}',$mode,'plugin_icalevents'); }
 
     /**
      * parse parameters from the {{iCalEvents>...}} tag.
