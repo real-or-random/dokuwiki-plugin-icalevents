@@ -1,6 +1,7 @@
+base   icalevents
 author Robert Rackl, Elan Ruusamäe
 email  wiki@doogie.de, glen@delfi.ee
-date   2011-05-24
+date   2012-09-09
 name   iCalEvents
 desc   Parses an iCalalendar .ics file and renders it as an HTML table
 url    http://www.dokuwiki.org/plugin:icalevents

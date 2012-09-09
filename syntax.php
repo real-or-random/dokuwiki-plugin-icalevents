@@ -3,8 +3,7 @@
  * Plugin iCalEvents: Renders an iCal .ics file as an HTML table.
  *
  * @license    GPL 2 (http://www.gnu.org/licenses/gpl.html)
- * @version    2.0.1
- * @date       May 2011
+ * @version    2.0.2
  * @author     Robert Rackl <wiki@doogie.de>
  * @author     Elan Ruusamäe <glen@delfi.ee>
  */
@@ -38,13 +37,13 @@ require_once(DOKU_PLUGIN.'syntax.php');
  *
  * @see http://de.wikipedia.org/wiki/ICalendar
  */
-class syntax_plugin_iCalEvents extends DokuWiki_Syntax_Plugin
+class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin
 { 
     // implement necessary Dokuwiki_Syntax_Plugin methods
     function getType() { return 'substition'; }
     function getSort() { return 42; }
     function connectTo($mode) { $this->Lexer->addSpecialPattern('\{\{iCalEvents>.*?\}\}',$mode,'plugin_iCalEvents'); }
-    
+
     /**
      * parse parameters from the {{iCalEvents>...}} tag.
      * @return an array that will be passed to the renderer function
@@ -88,7 +87,7 @@ class syntax_plugin_iCalEvents extends DokuWiki_Syntax_Plugin
       
       return array($icsURL, $from, $previewSec, $dateFormat, $showEndDates, $showCurrentWeek);
     }
-    
+
     /**
      * loads the ics file via HTTP, parses it and renders an HTML table.
      */
@@ -135,7 +134,7 @@ class syntax_plugin_iCalEvents extends DokuWiki_Syntax_Plugin
       }
       return false;
     }
-    
+
     /**
      * Load the iCalendar file from 'url' and parse all
      * events that are within the range
@@ -143,7 +142,7 @@ class syntax_plugin_iCalEvents extends DokuWiki_Syntax_Plugin
      *
      * @param url HTTP URL of an *.ics file
      * @param from unix timestamp in seconds (may be null)
-     * @param previewSec preview range also in seconds 
+     * @param previewSec preview range also in seconds
      * @return an array of entries sorted by their startdate
      */
     function _parseIcs($url, $from, $previewSec, $dateFormat) {
@@ -157,31 +156,31 @@ class syntax_plugin_iCalEvents extends DokuWiki_Syntax_Plugin
         }
         $content    = $http->resp_body;
         $entries    = array();
-        
+
         # regular expressions for items that we want to extract from the iCalendar file
         $regex_vevent      = '/BEGIN:VEVENT(.*?)END:VEVENT/s';
         $regex_summary     = '/SUMMARY:(.*?)\n/';
 		$regex_location    = '/LOCATION:(.*?)\n/';
-		
+
         # descriptions may be continued with a space at the start of the next line
         # BUGFIX: OR descriptions can be the last item in the VEVENT string
-        $regex_description = '/DESCRIPTION:(.*?)\n([^ ]|$)/s';  
-		
+        $regex_description = '/DESCRIPTION:(.*?)\n([^ ]|$)/s';
+
 		#normal events with time
 		$regex_dtstart     = '/DTSTART.*?:([0-9]{4})([0-9]{2})([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})/';
 		$regex_dtend       = '/DTEND.*?:([0-9]{4})([0-9]{2})([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})/';
-		
+
 		#all day event
         $regex_alldaystart = '/DTSTART;VALUE=DATE:([0-9]{4})([0-9]{2})([0-9]{2})/';
 		$regex_alldayend   = '/DTEND;VALUE=DATE:([0-9]{4})([0-9]{2})([0-9]{2})/';
-        
 
-        #split the whole content into VEVENTs        
+
+        #split the whole content into VEVENTs
         preg_match_all($regex_vevent, $content, $matches, PREG_PATTERN_ORDER);
 
         #loop over VEVENTs and parse out some itmes
         foreach ($matches[1] as $vevent) {
-          
+
           $entry = array();
           if (preg_match($regex_summary, $vevent, $summary)) {
             $entry['summary'] = str_replace('\,', ',', $summary[1]);
@@ -203,38 +202,38 @@ class syntax_plugin_iCalEvents extends DokuWiki_Syntax_Plugin
 			$entry['enddate']       = strftime($dateFormat, $entry['endunixdate']);
             $entry['allday']        = true;
           }
-          
+
           # if entry is to old then filter it
-          if ($from && $entry['startunixdate']) { 
-            if ($entry['startunixdate'] < $from) { continue; } 
+          if ($from && $entry['startunixdate']) {
+            if ($entry['startunixdate'] < $from) { continue; }
             if ($previewSec && ($entry['startunixdate'] > time()+$previewSec)) { continue; }
           }
           # also filter PalmPilot internal stuff
-          if (preg_match('/@@@/', $entry['description'])) { continue; }  
-          
+          if (preg_match('/@@@/', $entry['description'])) { continue; }
+
           if (preg_match($regex_description, $vevent, $description)) {
             $entry['description'] = $this->_parseDesc($description[1]);
           }
           if (preg_match($regex_location, $vevent, $location)) {
             $entry['location'] = str_replace('\,', ',', $location[1]);
           }
-          
+
           #msg('adding <pre>'.print_r($vevent, true)."\n\n as \n\n".print_r($entry,true).'</pre>');
-          $entries[] = $entry; 
+          $entries[] = $entry;
         }
-        
+
         #sort entries by startunixdate
-        usort($entries, 'compareByStartUnixDate'); 
-        
-        #echo '<pre>';   
+        usort($entries, 'compareByStartUnixDate');
+
+        #echo '<pre>';
         #print_r($matches);
         #echo '</pre>';
-        
+
         return $entries;
     }
-    
+
     /**
-     
+
      * Clean description text and render HTML links.
      * In an ics file the description may span over multiple lines.
      * Subsequent lines are indented by one space.
