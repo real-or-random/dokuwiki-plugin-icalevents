@@ -6,6 +6,7 @@
  * @version    2.0.2
  * @author     Robert Rackl <wiki@doogie.de>
  * @author     Elan Ruusamäe <glen@delfi.ee>
+ * @author     Frank Schiebel <frank@linuxmuster.net>
  */
 
 // must be run within Dokuwiki
@@ -38,11 +39,14 @@ require_once(DOKU_PLUGIN.'syntax.php');
  * @see http://de.wikipedia.org/wiki/ICalendar
  */
 class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin
-{ 
+{
     // implement necessary Dokuwiki_Syntax_Plugin methods
     function getType() { return 'substition'; }
     function getSort() { return 42; }
-    function connectTo($mode) { $this->Lexer->addSpecialPattern('\{\{iCalEvents>.*?\}\}',$mode,'plugin_icalevents'); }
+    function connectTo($mode) {
+        $this->Lexer->addSpecialPattern('\{\{iCalEvents>.*?\}\}',$mode,'plugin_icalevents');
+        $this->Lexer->addSpecialPattern('\{\{icalevents>.*?\}\}',$mode,'plugin_icalevents');
+    }
 
     /**
      * parse parameters from the {{iCalEvents>...}} tag.
@@ -62,72 +66,104 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin
             // anything that strtotime can parse: 'today', '1 week ago', etc
             $from = strtotime($params['from']);
           }
-	  }
+      }
 
       if (!empty($params['previewDays'])) {
         $previewSec = $params['previewDays']*24*3600;
       } else {
         $previewSec = 60*24*3600;  # two month
       }
-      
-      # Take dateformat from params, or
-      # If dateformat is set in plugin configuration ('dformat'), then use it.
-      # Otherwise fall back to dokuwiki's default dformat from the global /conf/dokuwiki.php.
-      if (!empty($params['dformat'])) {
-        $dateFormat = $params['dformat'];
+
+      if (!empty($params['dayformat'])) {
+        $dayFormat = $params['dayformat'];
       } else {
-        global $conf;
-        $dateFormat = $this->getConf('dformat') ? $this->getConf('dformat') : $conf['dformat'];
+        $dayFormat = $this->getConf('dayformat');
       }
 
+      if (!empty($params['timeformat'])) {
+        $timeFormat = $params['timeformat'];
+      } else {
+        $timeFormat = $this->getConf('timeformat');;
+      }
       $showEndDates = !empty($params['showEndDates']);
       $showCurrentWeek = !empty($params['showCurrentWeek']);
-      
+
       #echo "url=$icsURL flags=$flagStr; from = $from;    previewSec = $previewSec; dateFormat=$dateFormat; showCurrentWeek=$showCurrentWeek<br/>";
-      
-      return array($icsURL, $from, $previewSec, $dateFormat, $showEndDates, $showCurrentWeek);
+
+      return array($icsURL, $from, $previewSec, $dayFormat, $timeFormat, $showEndDates, $showCurrentWeek);
     }
 
     /**
      * loads the ics file via HTTP, parses it and renders an HTML table.
      */
     function render($mode, &$renderer, $data) {
-      list($url, $from, $previewSec, $dateFormat, $showEndDates, $showCurrentWeek) = $data;
+      list($url, $from, $previewSec, $dayFormat, $timeFormat, $showEndDates, $showCurrentWeek) = $data;
       $ret = '';
       if($mode == 'xhtml'){
-	      # parse the ICS file
-          $entries = $this->_parseIcs($url, $from, $previewSec, $dateFormat);
+          # parse the ICS file
+          $entries = $this->_parseIcs($url, $from, $previewSec, $dayFormat, $timeFormat);
           if ($this->error) {
             $renderer->doc .= "Error in Plugin iCalEvents: ".$this->error;
             return true;
           }
           #loop over entries and create a table row for each one.
           $rowCount = 0;
-          $ret .= '<table class="inline"><tr>'.
-                  '<th>'.$this->getLang('when').'</th>'.
-                  '<th>'.$this->getLang('what').'</th>'.
-                  '<th>'.$this->getLang('description').'</th>'.
-                  '<th>'.$this->getLang('where').'</th>'.
-                  '</tr>'.NL;
+          $monthname = "";
+          setlocale(LC_TIME, trim($this->getConf('locale')));
+
           $weekStart = strtotime("last monday 00:00");
           $weekEnd = strtotime("next monday 12:00");
+
           foreach ($entries as $entry) {
+            $monthname_new = strftime("%B %Y",$entry['startunixdate']);
+            # If list_split_month option is selected, start new table when month changes
+            if ( $this->getConf('list_split_months') ) {
+                if ( $monthname_new != $monthname ) {
+                    if ($rowCount > 0 ) {
+                        $ret .= "</table>".NL.NL;
+                    }
+                    $ret .= "<h3>" . utf8_encode($monthname_new) . "</h3>".NL.NL;
+                    $monthname = $monthname_new;
+                    $ret .= $this->_get_tableheading();
+                }
+            } elseif ( $rowCount == 0 ) {
+                    $ret .= $this->_get_tableheading();
+            }
+
             $rowCount++;
             $ret .= '<tr';
             if ($showCurrentWeek && ($entry['startunixdate'] >= $weekStart && $entry['endunixdate'] <= $weekEnd)) {
                 $ret .= ' style="background-color: red !important"';
             }
             $ret .= '>';
-			if ($showEndDates || $this->getConf('showEndDates')) {
-				$ret .= '<td>'.$entry['startdate'].' - '.$entry['enddate'].'</td>';
-			} else {
-				$ret .= '<td>'.$entry['startdate'];
-			}
-            $ret .= '<td>'.$entry['summary'].'</td>';
-            $ret .= '<td>'.$entry['description'].'</td>';
+            if ($showEndDates || $this->getConf('showEndDates')) {
+                $ret .= '<td>'.$entry['startdate'];
+                $ret .= ' <span>'.$entry['starttime'].'</span>';
+                if ( $entry['enddate'] . $entry['endtime'] != "" ) {
+                    $ret .= ' - '.$entry['enddate'].' <span>'.$entry['endtime'].'</span></td>';
+                }
+            } else {
+                $ret .= '<td>'.$entry['startdate'];
+                $ret .= ' <span>'.$entry['starttime'].'</span></td>';
+            }
+
+            # when 'list_desc_as_acronym' is not set, create 2 columns for summary
+            # and description, else one column with the summary, the description
+            # as its acronym
+            if ( ! $this->getConf('list_desc_as_acronym') ) {
+                $ret .= '<td>'.$entry['summary'].'</td>';
+                $ret .= '<td>'.$entry['description'].'</td>';
+            } else {
+                if ( $entry['description'] != "" ) {
+                    $ret .= '<td><acronym title="'.$entry['description'].'">'.$entry['summary'].'</acronym></td>';
+                } else {
+                    $ret .= '<td>'.$entry['summary'].'</td>';
+                }
+            }
             $ret .= '<td>'.$entry['location'].'</td>';
             $ret .= '</tr>'.NL;
           }
+
           $ret .= '</table>';
           $renderer->doc .= $ret;
           return true;
@@ -145,7 +181,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin
      * @param previewSec preview range also in seconds
      * @return an array of entries sorted by their startdate
      */
-    function _parseIcs($url, $from, $previewSec, $dateFormat) {
+    function _parseIcs($url, $from, $previewSec, $dayFormat, $timeFormat) {
         // must reset error in case we have multiple calendars on page
         $this->error = false;
 
@@ -160,19 +196,19 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin
         # regular expressions for items that we want to extract from the iCalendar file
         $regex_vevent      = '/BEGIN:VEVENT(.*?)END:VEVENT/s';
         $regex_summary     = '/SUMMARY:(.*?)\n/';
-		$regex_location    = '/LOCATION:(.*?)\n/';
+        $regex_location    = '/LOCATION:(.*?)\n/';
 
         # descriptions may be continued with a space at the start of the next line
         # BUGFIX: OR descriptions can be the last item in the VEVENT string
         $regex_description = '/DESCRIPTION:(.*?)\n([^ ]|$)/s';
 
-		#normal events with time
-		$regex_dtstart     = '/DTSTART.*?:([0-9]{4})([0-9]{2})([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})/';
-		$regex_dtend       = '/DTEND.*?:([0-9]{4})([0-9]{2})([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})/';
+        #normal events with time
+        $regex_dtstart     = '/DTSTART.*?:([0-9]{4})([0-9]{2})([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})/';
+        $regex_dtend       = '/DTEND.*?:([0-9]{4})([0-9]{2})([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})/';
 
-		#all day event
+        #all day event
         $regex_alldaystart = '/DTSTART;VALUE=DATE:([0-9]{4})([0-9]{2})([0-9]{2})/';
-		$regex_alldayend   = '/DTEND;VALUE=DATE:([0-9]{4})([0-9]{2})([0-9]{2})/';
+        $regex_alldayend   = '/DTEND;VALUE=DATE:([0-9]{4})([0-9]{2})([0-9]{2})/';
 
 
         #split the whole content into VEVENTs
@@ -186,20 +222,38 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin
             $entry['summary'] = str_replace('\,', ',', $summary[1]);
           }
           if (preg_match($regex_dtstart, $vevent, $dtstart)) {
-		    #                                hour          minute       second       month        day          year
-            $entry['startunixdate'] = mktime($dtstart[4], $dtstart[5], $dtstart[6], $dtstart[2], $dtstart[3], $dtstart[1]);
-			$entry['startdate']     = strftime($dateFormat, $entry['startunixdate']);
-			preg_match($regex_dtend, $vevent, $dtend);
-			$entry['endunixdate']   = mktime($dtend[4], $dtend[5], $dtend[6], $dtend[2], $dtend[3], $dtend[1]);
-			$entry['enddate']       = strftime($dateFormat, $entry['endunixdate']);
-			$entry['allday']        = false;
+            #                                hour          minute       second       month        day          year
+            $entry['startunixdate'] = $this->_tz_correct(mktime($dtstart[4], $dtstart[5], $dtstart[6], $dtstart[2], $dtstart[3], $dtstart[1]));
+            $entry['startdate']     = strftime($dayFormat, $entry['startunixdate']);
+            $entry['starttime']     = strftime($timeFormat, $entry['startunixdate']);
+            preg_match($regex_dtend, $vevent, $dtend);
+            $entry['endunixdate']   = $this->_tz_correct(mktime($dtend[4], $dtend[5], $dtend[6], $dtend[2], $dtend[3], $dtend[1]));
+            # fix google calendars "one event to next day" behaviour
+            if ($this->getConf('event_to_next_day')) {
+                $entry['endunixdate']  = $entry['endunixdate']  - 3600*24;
+            }
+            $entry['enddate']       = strftime($dayFormat, $entry['endunixdate']);
+            $entry['endtime']       = strftime($timeFormat, $entry['endunixdate']);
+            # Same day? The skip the second date.
+            if ( $entry['startdate'] == $entry['enddate'] ); {
+                $entry['enddate'] = "";
+            }
+            $entry['allday']        = false;
           }
           if (preg_match($regex_alldaystart, $vevent, $alldaystart)) {
-            $entry['startunixdate'] = mktime(12, 0, 0, $alldaystart[2], $alldaystart[3], $alldaystart[1]);
-			$entry['startdate']     = strftime($dateFormat, $entry['startunixdate']);
+            $entry['startunixdate'] = $this->_tz_correct(mktime(12, 0, 0, $alldaystart[2], $alldaystart[3], $alldaystart[1]));
+
+            $entry['startdate']     = strftime($dayFormat, $entry['startunixdate']);
             preg_match($regex_alldayend, $vevent, $alldayend);
-			$entry['endunixdate']   = mktime(12, 0, 0, $alldayend[2], $alldayend[3], $alldayend[1]);
-			$entry['enddate']       = strftime($dateFormat, $entry['endunixdate']);
+            $entry['endunixdate']   = $this->_tz_correct(mktime(12, 0, 0, $alldayend[2], $alldayend[3], $alldayend[1]));
+            # fix google calendars "one event to next day" behaviour
+            if ($this->getConf('event_to_next_day')) {
+                $entry['endunixdate']  = $entry['endunixdate']  - 3600*24;
+            }
+            $entry['enddate']       = strftime($dayFormat, $entry['endunixdate']);
+            if ( $entry['startdate'] == $entry['enddate'] ) {
+                $entry['enddate'] = "";
+            }
             $entry['allday']        = true;
           }
 
@@ -242,10 +296,46 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin
      */
     function _parseDesc($str) {
       $str = str_replace('\,', ',', $str);
+      if ( $this->getConf('list_desc_as_acronym') ) {
+        $str = str_replace('\\n', ' ', $str);
+      } else {
+        $str = str_replace('\\n', '<br />', $str);
+      }
       $str = preg_replace("/[\n\r] ?/","",$str);
       $str = preg_replace("/\[\[(.*?)\|(.*?)\]\]/", "<a href=\"$1\">$2</a>", $str);
       $str = preg_replace("/\[\[(.*?)\]\]/e", "html_wikilink('$1')", $str);
       return $str;
+    }
+
+    /**
+      * correct event time manually via config
+      * determine, if dst is active, correct timestamp accordingly when configured
+    */
+    function _tz_correct ($unixdate) {
+
+        $dst_offset = date('I', $unixdate);
+        $unixdate  = $unixdate  + 3600*$dst_offset;
+
+        # manually correct wrong timezones
+        if ($this->getConf('hour_offset')) {
+            $unixdate  = $unixdate  + 3600*$this->getConf('hour_offset');
+        }
+        return $unixdate;
+    }
+
+     /**
+      * Return heading of event-table
+      */
+    function _get_tableheading() {
+        $html = '<table class="inline icalevents"><tr>'.
+               '<th class="date">'.$this->getLang('when').'</th>'.
+               '<th>'.$this->getLang('what').'</th>';
+        if ( ! $this->getConf('list_desc_as_acronym') ) {
+                    $html .= '<th>'.$this->getLang('description').'</th>';
+        }
+        $html .= '<th>'.$this->getLang('where').'</th>'.
+               '</tr>'.NL;
+        return $html;
     }
 }
 

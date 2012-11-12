@@ -1,0 +1,10 @@
+table.icalevents {
+    width: 95%;
+}
+table.icalevents th.date {
+    width: 21em;
+}
+
+table.icalevents td span {
+    font-size: 80%;
+}

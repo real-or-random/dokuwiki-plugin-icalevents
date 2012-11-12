@@ -3,20 +3,20 @@
 
 # Date format that is used to display the from and to values
 # If you leave this empty '', then the default dformat from /conf/dokuwiki.php will be used.
-$conf['dayformat'] = "%d.%m.%y";
-$conf['timeformat'] = "%H:%M";
 
-# locale definition fpr setlocale
-$conf['locale'] = 'en_EN';
+$meta['dayformat'] = array('string');
+$meta['timeformat'] = array('string');
+
+# locale setting for setlocale
+$meta['locale'] = array('string');
 
 # should the end dates for each event be shown?
-$conf['showEndDates'] = 0;
+$meta['showEndDates'] = array(onoff);
 
 # do you wnat the description parsed as an acronym?
-$conf['list_desc_as_acronym']   = false;
+$meta['list_desc_as_acronym']   = array(onoff);
 
 # do you want one table per month instead of a huge eventsstable?
-$conf['list_split_months']      = false;
-$conf['hour_offset']      = 0;
-$conf['event_to_next_day'] = false;
-
+$meta['list_split_months']      = array(onoff);
+$meta['hour_offset']      = array('string');
+$meta['event_to_next_day']      = array(onoff);
