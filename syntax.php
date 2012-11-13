@@ -109,7 +109,10 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin
           #loop over entries and create a table row for each one.
           $rowCount = 0;
           $monthname = "";
-          setlocale(LC_TIME, trim($this->getConf('locale')));
+
+          if ($this->getConf('locale') != "") {
+            setlocale(LC_TIME, trim($this->getConf('locale')));
+          }
 
           $weekStart = strtotime("last monday 00:00");
           $weekEnd = strtotime("next monday 12:00");
