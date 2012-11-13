@@ -2,18 +2,18 @@
 # Default configuration for iCalEvent Dokuwiki Plugin
 
 # Format string to format the date without the time of an event
-$conf['dayformat'] = "%d.%m.%y";
+$meta['dayformat'] = array('string');
 # Format string to format the time part of an event
-$conf['timeformat'] = "%H:%M";
-# locale definition for setlocale
-$conf['locale'] = '';
+$meta['timeformat'] = array('string');
+# locale setting for setlocale
+$meta['locale'] = array('string');
 # should the end dates for each event be shown?
-$conf['showEndDates'] = 0;
+$meta['showEndDates'] = array('onoff');
 # do you wnat the description parsed as an acronym?
-$conf['list_desc_as_acronym']   = false;
+$meta['list_desc_as_acronym'] = array('onoff');
 # do you want one table per month instead of a huge eventsstable?
-$conf['list_split_months']      = false;
+$meta['list_split_months'] = array('onoff');
 # give manual offset to add/remove from the events hour
-$conf['hour_offset'] = 0;
+$meta['hour_offset'] = array('string');
 # fix for google calendar spanning a one day event to the next day
-$meta['event_to_next_day'] = false;
+$meta['event_to_next_day'] = array('onoff');
