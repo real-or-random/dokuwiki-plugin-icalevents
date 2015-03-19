@@ -1,0 +1,7 @@
+base   iCalendar
+author Jannes Drost-Tenfelde
+email  info@drost-tenfelde.de
+date   2011-11-14
+name   iCalendar Plugin
+desc   Allows iCalendar .ics to be parsed and presented in DokuWiki
+url    http://www.drost-tenfelde.de/?id=dokuwiki:plugins:icalendar
