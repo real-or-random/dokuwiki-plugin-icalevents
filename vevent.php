@@ -4,8 +4,10 @@ include_once( 'functions.php');
 
 $vevent =  urldecode( $_GET['vevent'] );
 $output  = "BEGIN:VCALENDAR\r\n";
+// TODO wrong prodid
 $output .= "PRODID: -//Google Inc//Google Calendar 70.9054//EN"."\r\n";
 $output .= "VERSION:2.0\r\n";
+// TODO we should not specify a method
 $output .= "METHOD:PUBLISH"."\r\n";
 $output .= $vevent; 
 $output .= "END:VCALENDAR\r\n";		
@@ -39,6 +41,7 @@ $filename .= '.ics';
 $filename = str_replace(":", "", $filename );
 
 // Output the file
+// TODO lowercase?
 header('Content-Type: text/Calendar');
 header('Content-Disposition: attachment; filename='.$filename);
 echo $output;

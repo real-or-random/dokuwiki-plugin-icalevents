@@ -44,7 +44,7 @@ class syntax_plugin_iCalendar extends DokuWiki_Syntax_Plugin
         'author' => 'J. Drost-Tenfelde',
         'email'  => 'info@drost-tenfelde.de',
         'date'   => '2011-09-28',
-        'name'   => 'iCalendar',
+        'name'   => 'iCalendar', // TODO lowercase
         'desc'   => 'Parses an iCalendar .ics file into HTML',
         'url'    => 'http://www.drost-tenfelde.de/?id=dokuwiki:plugins:icalendar',
       );
@@ -67,7 +67,7 @@ class syntax_plugin_iCalendar extends DokuWiki_Syntax_Plugin
 
         // Get the from parameter
 		if ($params['from'] == 'today') {
-			$from = time();
+			$from = 'today';
 		} else if (preg_match('#(\d\d)/(\d\d)/(\d\d\d\d)#', $params['from'], $fromDate)) {
 			// must be MM/dd/yyyy
 			$from = mktime(0, 0, 0, $fromDate[1], $fromDate[2], $fromDate[3]);
@@ -75,8 +75,8 @@ class syntax_plugin_iCalendar extends DokuWiki_Syntax_Plugin
 			$from = $params['from']; 
 		}
         // Get the to parameter
-		if ($params['to'] == 'today') {
-			$to = mktime(24, 0, 0, date("m") , date("d"), date("Y"));
+    if ($params['to'] == 'today') {
+      $to = 'today';
 
 		} else if (preg_match('#(\d\d)/(\d\d)/(\d\d\d\d)#', $params['to'], $toDate)) {
 			// must be MM/dd/yyyy
@@ -148,7 +148,14 @@ class syntax_plugin_iCalendar extends DokuWiki_Syntax_Plugin
 	 * loads the ics file via HTTP, parses it and renders an HTML table.
 	 */
 	function render($mode, &$renderer, $data) {
-		list($url, $from, $to, $previewDays, $numberOfEntries, $showEndDates, $template, $sort_descending) = $data;
+    list($url, $from, $to, $previewDays, $numberOfEntries, $showEndDates, $template, $sort_descending) = $data;
+    if ($from == 'today') {
+      $from = now();
+    }
+    if ($to == 'today') {
+      $to = mktime(24, 0, 0, date("m") , date("d"), date("Y"));
+    }
+
 		$ret = ''.$mediadir;
         
 		if ($mode == 'xhtml') {
@@ -195,6 +202,7 @@ class syntax_plugin_iCalendar extends DokuWiki_Syntax_Plugin
 					$entryTemplate = str_replace('{location}', $location, $entryTemplate );
 					
 					// {location_link}
+					// TODO other providers
 					$location_link = 'http://maps.google.com/maps?q='.str_replace(' ', '+', str_replace(',', ' ', $location));
 					$entryTemplate = str_replace('{location_link}', '[['.$location_link.'|'.$location.']]', $entryTemplate );				
 				}
