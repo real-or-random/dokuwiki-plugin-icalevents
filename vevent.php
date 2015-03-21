@@ -41,8 +41,7 @@ $filename .= '.ics';
 $filename = str_replace(":", "", $filename );
 
 // Output the file
-// TODO lowercase?
-header('Content-Type: text/Calendar');
+header('Content-Type: text/calendar');
 header('Content-Disposition: attachment; filename='.$filename);
 echo $output;
 
