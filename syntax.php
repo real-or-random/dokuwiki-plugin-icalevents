@@ -6,6 +6,8 @@
  * @version    2.0.2
  * @author     Robert Rackl <wiki@doogie.de>
  * @author     Elan Ruusamäe <glen@delfi.ee>
+ * @author     J. Drost-Tenfelde <info@drost-tenfelde.de>
+ *
  */
 
 // must be run within Dokuwiki
@@ -14,19 +16,21 @@ if(!defined('DOKU_INC')) die();
 if(!defined('DOKU_PLUGIN')) define('DOKU_PLUGIN',DOKU_INC.'lib/plugins/');
 require_once(DOKU_PLUGIN.'syntax.php');
 
+include_once(DOKU_INC.'lib/plugins/icalevents/functions.php');
+
 /**
  * This plugin gets an iCalendar file via HTTP and then
  * parses this file into an HTML table.
  *
  * Usage: {{iCalEvents>http://host/myCalendar.ics#from=today&previewDays=30}}
  *
- * You can filter the events that are shown with some arameters:
+ * You can filter the events that are shown with some parameters:
  * 1. 'from' a date from which on to show events. any text that strformat can accept
  *           for example "from=today".
  *           If 'from' is omitted, then all events are shown.
  *           http://www.php.net/manual/en/function.strtotime.php
  * 2. 'previewDays' amount of days to preview into the future.
- *           Default ist 60 days.
+ *           Default is 60 days.
  * 3. 'showEndDates' to show end date or not defaults to value set in plugin config
  * 4. 'showCurrentWeek' highlight events matching current week.
  *           currently assumes all-day events end at 12:00 local time, like in Google Calendar
@@ -38,7 +42,7 @@ require_once(DOKU_PLUGIN.'syntax.php');
  * @see http://de.wikipedia.org/wiki/ICalendar
  */
 class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin
-{ 
+{
     // implement necessary Dokuwiki_Syntax_Plugin methods
     function getType() { return 'substition'; }
     function getSort() { return 42; }
@@ -53,203 +57,303 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin
       list($icsURL, $flagStr) = explode('#', $match, 2);
       parse_str($flagStr, $params);
 
-      $from = null;
-      if (!empty($params['from'])) {
-          // unix timestamp: handle specially for backward compatability
-          if (preg_match('/^\d+$/', $params['from'])) {
-            $from = (int )$params['from'];
-          } else {
-            // anything that strtotime can parse: 'today', '1 week ago', etc
-            $from = strtotime($params['from']);
-          }
-	  }
+        // Get the from parameter
+		if ($params['from'] == 'today') {
+			$from = 'today';
+		} else if (preg_match('#(\d\d)/(\d\d)/(\d\d\d\d)#', $params['from'], $fromDate)) {
+			// must be MM/dd/yyyy
+			$from = mktime(0, 0, 0, $fromDate[1], $fromDate[2], $fromDate[3]);
+		} else if (preg_match('/\d+/', $params['from'])) {
+			$from = $params['from'];
+		}
+        // Get the to parameter
+    if ($params['to'] == 'today') {
+      $to = 'today';
 
-      if (!empty($params['previewDays'])) {
-        $previewSec = $params['previewDays']*24*3600;
-      } else {
-        $previewSec = 60*24*3600;  # two month
-      }
-      
-      # Take dateformat from params, or
-      # If dateformat is set in plugin configuration ('dformat'), then use it.
-      # Otherwise fall back to dokuwiki's default dformat from the global /conf/dokuwiki.php.
-      if (!empty($params['dformat'])) {
-        $dateFormat = $params['dformat'];
-      } else {
-        global $conf;
-        $dateFormat = $this->getConf('dformat') ? $this->getConf('dformat') : $conf['dformat'];
-      }
+		} else if (preg_match('#(\d\d)/(\d\d)/(\d\d\d\d)#', $params['to'], $toDate)) {
+			// must be MM/dd/yyyy
+			$to = mktime(0, 0, 0, $toDate[1], $toDate[2], $toDate[3]);
+		} else if (preg_match('/\d+/', $params['to'])) {
+			$to = $params['to'];
+		}
 
-      $showEndDates = !empty($params['showEndDates']);
-      $showCurrentWeek = !empty($params['showCurrentWeek']);
-      
-      #echo "url=$icsURL flags=$flagStr; from = $from;    previewSec = $previewSec; dateFormat=$dateFormat; showCurrentWeek=$showCurrentWeek<br/>";
-      
-      return array($icsURL, $from, $previewSec, $dateFormat, $showEndDates, $showCurrentWeek);
+        // Get the numberOfEntries parameter
+        if ($params['numberOfEntries']) {
+			$numberOfEntries = $params['numberOfEntries'];
+		} else {
+			$numberOfEntries = -1;
+      	}
+
+        // Get the show end dates parameter
+		if ($params['showEndDates'] == 1 ) {
+    		$showEndDates = true;
+		} else {
+			$showEndDates = false;
+      	}
+        // Get the show as list parameter
+        if ( $params['showAs'] ) {
+            $showAs = $params['showAs'];
+        }
+        else {
+            $showAs = 'default';
+        }
+
+        // Get the showAs parameter (since v1.4)
+		if ( $params['showAs'] ) {
+            $showAs = $params['showAs'];
+		}
+		else {
+            // Backward compatibiltiy of v1.3 or earlier
+            if ($params['showAsList'] == 1) {
+                $showAs = 'list';
+            } else {
+                $showAs = 'default';
+            }
+        }
+        // Get the appropriate template
+        $template = $this->getConf($showAs);
+        if ( !isset($template ) || $template == '' ) {
+			$template = $this->getConf('default');
+		}
+
+        // Find out if the events should be sorted in reserve
+        $sort_descending = false;
+        if ( $params['sort'] == 'DESC') {
+            $sort_descending = true;
+        }
+        //echo $rsort;
+        //exit( 0 );
+
+        // Get the previewDays parameter
+        if ( $params['previewDays'] ) {
+            $previewDays = $params['previewDays'];
+        }
+        else {
+            $previewDays = -1;
+        }
+
+		#echo "url=$icsURL from = $from    numberOfEntries = $numberOfEntries<br>";
+		return array($icsURL, $from, $to, $previewDays, $numberOfEntries, $showEndDates, $template, $sort_descending);
     }
 
     /**
      * loads the ics file via HTTP, parses it and renders an HTML table.
      */
     function render($mode, &$renderer, $data) {
+    list($url, $from, $to, $previewDays, $numberOfEntries, $showEndDates, $template, $sort_descending) = $data;
+    if ($from == 'today') {
+      $from = time();
+    }
+    if ($to == 'today') {
+      $to = mktime(24, 0, 0, date("m") , date("d"), date("Y"));
+    }
+
       list($url, $from, $previewSec, $dateFormat, $showEndDates, $showCurrentWeek) = $data;
       $ret = '';
-      if($mode == 'xhtml'){
-	      # parse the ICS file
-          $entries = $this->_parseIcs($url, $from, $previewSec, $dateFormat);
+		if ($mode == 'xhtml') {
+			# parse the ICS file
+			$entries = $this->_parseIcs($url, $from, $to, $previewDays, $numberOfEntries, $sort_descending);
+
           if ($this->error) {
             $renderer->doc .= "Error in Plugin iCalEvents: ".$this->error;
             return true;
           }
-          #loop over entries and create a table row for each one.
-          $rowCount = 0;
-          $ret .= '<table class="inline"><tr>'.
-                  '<th>'.$this->getLang('when').'</th>'.
-                  '<th>'.$this->getLang('what').'</th>'.
-                  '<th>'.$this->getLang('description').'</th>'.
-                  '<th>'.$this->getLang('where').'</th>'.
-                  '</tr>'.NL;
-          $weekStart = strtotime("last monday 00:00");
-          $weekEnd = strtotime("next monday 12:00");
-          foreach ($entries as $entry) {
-            $rowCount++;
-            $ret .= '<tr';
-            if ($showCurrentWeek && ($entry['startunixdate'] >= $weekStart && $entry['endunixdate'] <= $weekEnd)) {
-                $ret .= ' style="background-color: red !important"';
-            }
-            $ret .= '>';
-			if ($showEndDates || $this->getConf('showEndDates')) {
-				$ret .= '<td>'.$entry['startdate'].' - '.$entry['enddate'].'</td>';
-			} else {
-				$ret .= '<td>'.$entry['startdate'];
+
+			#loop over entries and create a table row for each one.
+			$rowCount = 0;
+
+			foreach ($entries as $entry) {
+				$rowCount++;
+
+				# Get the html for the entries
+				$entryTemplate = $template;
+
+				// {description}
+				$entryTemplate = str_replace('{description}', $entry['description'], $entryTemplate );
+
+                // {summary}
+                $entryTemplate = str_replace('{summary}', $entry['summary'], $entryTemplate );
+
+                // {summary_link}
+                $summary_link = array();
+                $summary_link['class']  = 'urlintern';
+                $summary_link['style']  = 'background-image: url(lib/plugins/icalevents/ics.png); background-repeat:no-repeat; padding-left:16px; text-decoration: none;';
+                $summary_link['pre']    = '';
+                $summary_link['suf']    = '';
+                $summary_link['more']   = 'rel="nofollow"';
+                $summary_link['target'] = '';
+                $summary_link['title']  = $entry['summary'];
+                $summary_link['url']    = 'lib/plugins/icalevents/vevent.php?vevent='.urlencode( $entry['vevent'] );
+                $summary_link['name']  = $entry['summary'];
+                // TODO render to raw html immediately to avoid requiring that "htmlok" is set
+                $entryTemplate = str_replace('{summary_link}', '<html>'.$renderer->_formatLink($summary_link).'</html>', $entryTemplate );
+
+                // See if a location was set
+				$location = $entry['location'];
+				if ( $location != '' ) {
+                    // {location}
+					$entryTemplate = str_replace('{location}', $location, $entryTemplate );
+
+					// {location_link}
+					// TODO other providers
+					$location_link = 'http://maps.google.com/maps?q='.str_replace(' ', '+', str_replace(',', ' ', $location));
+					$entryTemplate = str_replace('{location_link}', '[['.$location_link.'|'.$location.']]', $entryTemplate );
+				}
+				else {
+				    // {location}
+					$entryTemplate = str_replace('{location}', 'Unknown', $entryTemplate );
+					// {location_link}
+					$entryTemplate = str_replace('{location_link}', 'Unknown', $entryTemplate );
+				}
+
+				$dateString = "";
+
+				// Get the start and end day
+				$startDay = date("Ymd", $entry['startunixdate']);
+				$endDay = date("Ymd", $entry['endunixdate']);
+
+				if ( $endDay > $startDay )
+				{
+					if ( $entry['allday'] )
+					{
+						$dateString = $entry['startdate'].'-'.$entry['enddate'];
+					}
+					else {
+						$dateString = $entry['startdate'].' '.$entry['starttime'].'-'.$entry['enddate'].' '.$entry['endtime'];
+					}
+				}
+				else {
+					if ( $showEndDates ) {
+						if ( $entry['allday'] )
+						{
+							$dateString = $entry['startdate'];
+						}
+						else {
+							$dateString = $entry['startdate'].' '.$entry['starttime'].'-'.$entry['endtime'];
+						}
+					}
+					else {
+						$dateString = $entry['startdate'];
+					}
+				}
+
+				// {date}
+				$entryTemplate = str_replace('{date}', $dateString, $entryTemplate );
+
+				$ret .= $entryTemplate.'
+';
+
 			}
-            $ret .= '<td>'.$entry['summary'].'</td>';
-            $ret .= '<td>'.$entry['description'].'</td>';
-            $ret .= '<td>'.$entry['location'].'</td>';
-            $ret .= '</tr>'.NL;
-          }
-          $ret .= '</table>';
-          $renderer->doc .= $ret;
-          return true;
-      }
-      return false;
-    }
+// 			$renderer->doc .= $ret;
+			$html = p_render($mode, p_get_instructions( $ret ), $info );
+			$html = str_replace( '\\n', '<br />', $html );
+			$renderer->doc .= $html;
 
-    /**
-     * Load the iCalendar file from 'url' and parse all
-     * events that are within the range
-     * from <= eventdate <= from+previewSec
-     *
-     * @param url HTTP URL of an *.ics file
-     * @param from unix timestamp in seconds (may be null)
-     * @param previewSec preview range also in seconds
-     * @return an array of entries sorted by their startdate
-     */
-    function _parseIcs($url, $from, $previewSec, $dateFormat) {
-        // must reset error in case we have multiple calendars on page
-        $this->error = false;
+			return true;
+		}
+		return false;
+	}
 
-        $http    = new DokuHTTPClient();
-        if (!$http->get($url)) {
-          $this->error = "Could not get '$url': ".$http->status;
-          return array();
+	/**
+	 * Load the iCalendar file from 'url' and parse all
+	 * events that are within the range
+	 * from <= eventdate <= from+previewSec
+	 *
+	 * @param url HTTP URL of an *.ics file
+	 * @param from unix timestamp in seconds (may be null)
+	 * @param to unix timestamp in seconds (may be null)
+	 * @param previewDays Limit the entries to 30 days in the future
+	 * @param numberOfEntries Number of entries to display
+	 * @param $sort_descending
+	 * @return an array of entries sorted by their startdate
+	 */
+	function _parseIcs($url, $from, $to, $previewDays, $numberOfEntries, $sort_descending ) {
+	    global $conf;
+
+		$http    = new DokuHTTPClient();
+		if (!$http->get($url)) {
+			$this->error = "Could not get '$url': ".$http->status;
+			return array();
+		}
+		$content    = $http->resp_body;
+		$entries    = array();
+
+		# If dateformat is set in plugin configuration ('dformat'), then use it.
+		# Otherwise fall back to dokuwiki's default dformat from the global /conf/dokuwiki.php.
+		$dateFormat = $this->getConf('dformat') ? $this->getConf('dformat') : $conf['dformat'];
+		//$timeFormat = $this->getConf('tformat') ? $this->getConf('tformat') : $conf['tformat'];
+
+		# regular expressions for items that we want to extract from the iCalendar file
+		$regex_vevent      = '/BEGIN:VEVENT(.*?)END:VEVENT/s';
+
+		#split the whole content into VEVENTs
+		preg_match_all($regex_vevent, $content, $matches, PREG_PATTERN_ORDER);
+
+        if ( $previewDays > 0 )
+        {
+            $previewSec = $previewDays * 24 * 3600;
         }
-        $content    = $http->resp_body;
-        $entries    = array();
-
-        # regular expressions for items that we want to extract from the iCalendar file
-        $regex_vevent      = '/BEGIN:VEVENT(.*?)END:VEVENT/s';
-        $regex_summary     = '/SUMMARY:(.*?)\n/';
-		$regex_location    = '/LOCATION:(.*?)\n/';
-
-        # descriptions may be continued with a space at the start of the next line
-        # BUGFIX: OR descriptions can be the last item in the VEVENT string
-        $regex_description = '/DESCRIPTION:(.*?)\n([^ ]|$)/s';
-
-		#normal events with time
-		$regex_dtstart     = '/DTSTART.*?:([0-9]{4})([0-9]{2})([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})/';
-		$regex_dtend       = '/DTEND.*?:([0-9]{4})([0-9]{2})([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})/';
-
-		#all day event
-        $regex_alldaystart = '/DTSTART;VALUE=DATE:([0-9]{4})([0-9]{2})([0-9]{2})/';
-		$regex_alldayend   = '/DTEND;VALUE=DATE:([0-9]{4})([0-9]{2})([0-9]{2})/';
-
-
-        #split the whole content into VEVENTs
-        preg_match_all($regex_vevent, $content, $matches, PREG_PATTERN_ORDER);
-
-        #loop over VEVENTs and parse out some itmes
-        foreach ($matches[1] as $vevent) {
-
-          $entry = array();
-          if (preg_match($regex_summary, $vevent, $summary)) {
-            $entry['summary'] = str_replace('\,', ',', $summary[1]);
-          }
-          if (preg_match($regex_dtstart, $vevent, $dtstart)) {
-		    #                                hour          minute       second       month        day          year
-            $entry['startunixdate'] = mktime($dtstart[4], $dtstart[5], $dtstart[6], $dtstart[2], $dtstart[3], $dtstart[1]);
-			$entry['startdate']     = strftime($dateFormat, $entry['startunixdate']);
-			preg_match($regex_dtend, $vevent, $dtend);
-			$entry['endunixdate']   = mktime($dtend[4], $dtend[5], $dtend[6], $dtend[2], $dtend[3], $dtend[1]);
-			$entry['enddate']       = strftime($dateFormat, $entry['endunixdate']);
-			$entry['allday']        = false;
-          }
-          if (preg_match($regex_alldaystart, $vevent, $alldaystart)) {
-            $entry['startunixdate'] = mktime(12, 0, 0, $alldaystart[2], $alldaystart[3], $alldaystart[1]);
-			$entry['startdate']     = strftime($dateFormat, $entry['startunixdate']);
-            preg_match($regex_alldayend, $vevent, $alldayend);
-			$entry['endunixdate']   = mktime(12, 0, 0, $alldayend[2], $alldayend[3], $alldayend[1]);
-			$entry['enddate']       = strftime($dateFormat, $entry['endunixdate']);
-            $entry['allday']        = true;
-          }
-
-          # if entry is to old then filter it
-          if ($from && $entry['startunixdate']) {
-            if ($entry['startunixdate'] < $from) { continue; }
-            if ($previewSec && ($entry['startunixdate'] > time()+$previewSec)) { continue; }
-          }
-          # also filter PalmPilot internal stuff
-          if (preg_match('/@@@/', $entry['description'])) { continue; }
-
-          if (preg_match($regex_description, $vevent, $description)) {
-            $entry['description'] = $this->_parseDesc($description[1]);
-          }
-          if (preg_match($regex_location, $vevent, $location)) {
-            $entry['location'] = str_replace('\,', ',', $location[1]);
-          }
-
-          #msg('adding <pre>'.print_r($vevent, true)."\n\n as \n\n".print_r($entry,true).'</pre>');
-          $entries[] = $entry;
+        else {
+            $previewSec = -1;
         }
 
-        #sort entries by startunixdate
-        usort($entries, 'compareByStartUnixDate');
+		// loop over VEVENTs and parse out some items
+		foreach ($matches[1] as $vevent) {
+            $entry = parse_vevent( $vevent, $dateFormat );
 
-        #echo '<pre>';
-        #print_r($matches);
-        #echo '</pre>';
+			// if entry is to old then filter it
+			if ($from && $entry['endunixdate']) {
+				if ($entry['endunixdate'] < $from) { continue; }
+				if (($previewSec > 0) && ($entry['startunixdate'] > time()+$previewSec)) { continue; }
+			}
 
-        return $entries;
-    }
+			// if entry is to new then filter it
+			if ($to && $entry['startunixdate']) {
+				if ($entry['startunixdate'] > $to) { continue; }
+			}
 
-    /**
+			$entries[] = $entry;
+		}
 
-     * Clean description text and render HTML links.
-     * In an ics file the description may span over multiple lines.
-     * Subsequent lines are indented by one space.
-     * And the comma character is escaped.
-     * DokuWiki Links <code>[[http://www.domain.de|linktext]]</code> will be rendered to HTML links.
-     */
-    function _parseDesc($str) {
-      $str = str_replace('\,', ',', $str);
-      $str = preg_replace("/[\n\r] ?/","",$str);
-      $str = preg_replace("/\[\[(.*?)\|(.*?)\]\]/", "<a href=\"$1\">$2</a>", $str);
-      $str = preg_replace("/\[\[(.*?)\]\]/e", "html_wikilink('$1')", $str);
-      return $str;
-    }
+		if ( $to && ($from == null) )
+		{
+			// sort entries by startunixdate
+			usort($entries, 'compareByEndUnixDate');
+		} else if ( $from ) {
+			// sort entries by startunixdate
+			usort($entries, 'compareByStartUnixDate');
+        }
+        else if ( $sort_descending ) {
+            $entries = array_reverse( $entries, true );
+        }
+
+		// See if a maximum number of entries was set
+		if ( $numberOfEntries > 0 )
+		{
+            $entries = array_slice( $entries, 0, $numberOfEntries );
+
+
+            // Reverse array?
+            if ( $from && $sort_descending) {
+                $entries = array_reverse( $entries, true );
+            }
+            else if ( $to && !$from && (!$sort_descending)) {
+                $entries = array_reverse( $entries, true );
+            }
+		}
+
+		return $entries;
+	}
 }
 
 /** compares two entries by their startunixdate value */
 function compareByStartUnixDate($a, $b) {
   return strnatcmp($a['startunixdate'], $b['startunixdate']);
 }
+
+/** compares two entries by their startunixdate value */
+function compareByEndUnixDate($a, $b) {
+  return strnatcmp($b['endunixdate'], $a['endunixdate']);
+}
+
+?>
