@@ -162,7 +162,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         $ret = '';
         if ($mode == 'xhtml') {
             // parse the ICS file
-            $entries = $this->_parseIcs($url, $from, $to, $previewDays, $numberOfEntries, $sort_descending);
+            $entries = $this->parseIcs($url, $from, $to, $previewDays, $numberOfEntries, $sort_descending);
 
             if ($this->error) {
                 $renderer->doc .= "Error in Plugin iCalEvents: " . $this->error;
@@ -269,7 +269,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
      * @param  $sort_descending
      * @return an array of entries sorted by their startdate
      */
-    function _parseIcs($url, $from, $to, $previewDays, $numberOfEntries, $sort_descending) {
+    protected function parseIcs($url, $from, $to, $previewDays, $numberOfEntries, $sort_descending) {
         global $conf;
 
         $http = new DokuHTTPClient();
