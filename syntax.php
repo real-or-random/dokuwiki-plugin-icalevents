@@ -2,11 +2,29 @@
 /**
  * Plugin iCalEvents: Renders an iCal .ics file as an HTML table.
  *
- * @license GPL 2 (http://www.gnu.org/licenses/gpl.html)
- * @version 2.0.2
- * @author  Robert Rackl <wiki@doogie.de>
- * @author  Elan Ruusamäe <glen@delfi.ee>
- * @author  J. Drost-Tenfelde <info@drost-tenfelde.de>
+ * Copyright (C) 2010-2012, 2015
+ * Robert Rackl, Elan Ruusamäe, Jannes Drost-Tenfelde, Tim Ruffing
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * @license    https://www.gnu.org/licenses/gpl-2.0.html GPL2
+ * @version    3.0.0
+ * @author     Robert Rackl <wiki@doogie.de>
+ * @author     Elan Ruusamäe <glen@delfi.ee>
+ * @author     Jannes Drost-Tenfelde <info@drost-tenfelde.de>
+ * @author     Tim Ruffing <tim@timruffing.de>
+ *
  */
 
 // must be run within Dokuwiki
