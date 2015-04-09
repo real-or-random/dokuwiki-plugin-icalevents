@@ -71,6 +71,9 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
     function connectTo($mode) {
         $this->Lexer->addSpecialPattern('\{\{iCalEvents>.*?\}\}', $mode, 'plugin_icalevents');
     }
+    function getPType() {
+        return 'block';
+    }
 
     /**
      * parse parameters from the {{iCalEvents>...}} tag.
