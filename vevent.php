@@ -25,8 +25,7 @@ include_once('functions.php');
 $vevent = urldecode($_GET['vevent']);
 
 $output  = "BEGIN:VCALENDAR\r\n";
-// TODO wrong prodid
-$output .= "PRODID: -//Google Inc//Google Calendar 70.9054//EN" . "\r\n";
+$output .= "PRODID: -//DokuWiki//NONSGML Plugin iCalEvents//EN" . "\r\n";
 $output .= "VERSION:2.0\r\n";
 $output .= $vevent;
 $output .= "END:VCALENDAR\r\n";
