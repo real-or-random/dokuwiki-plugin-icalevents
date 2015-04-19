@@ -1,5 +1,5 @@
 <?php
-// Default configuration for iCalEvent Dokuwiki Plugin
+// Default configuration for iCalEvents plugin
 
 /*
  * Date format that is used to display the from and to values.
@@ -15,6 +15,10 @@ $conf['tformat'] = '%H:%M';
 
 // should the end dates for each event be shown?
 $conf['showEndDates'] = 0;
+
+// URL prefix for links to information about location (e.g., a map)
+$conf['locationUrlPrefix'] = 'https://maps.google.com/maps?q=';
+$conf['customLocationUrlPrefix'] = '';
 
 // Templates
 

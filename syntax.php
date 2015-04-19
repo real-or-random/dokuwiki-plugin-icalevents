@@ -165,7 +165,6 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
             return false;
         }
         $content = $http->resp_body;
-
         $config = array('unique_id' => 'dokuwiki-plugin-icalevents');
         $ical = new vcalendar($config);
         $ical->parse($content);
@@ -204,7 +203,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
                 }
 
                 $dokuwikiOutput = '';
-                // loop over events and render tem++plate for each one
+                // loop over events and render template for each one
                 foreach ($events as &$entry) {
                     $event = &$entry['event'];
                     $datetime = &$entry['datetime'];
@@ -225,9 +224,9 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
                         $eventTemplate = str_replace('{location}', $location, $eventTemplate);
 
                         // {location_link}
-                        // TODO other providers
-                        $location_link = 'http://maps.google.com/maps?q=' . str_replace(' ', '+', str_replace(',', ' ', $location));
-                        $eventTemplate = str_replace('{location_link}', '[[' . $location_link . '|' . $location . ']]', $eventTemplate);
+                        $locationUrl = $this->getLocationUrl($location);
+                        $locationLink = $locationUrl ? ('[[' . $locationUrl . '|' . $location . ']]') : $location;
+                        $eventTemplate = str_replace('{location_link}', $locationLink, $eventTemplate);
                     } else {
                         // {location}
                         $eventTemplate = str_replace('{location}', 'Unknown', $eventTemplate);
@@ -398,5 +397,28 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
             $res .= $replace[$replaceIndex];
         }
         return $res;
+    }
+
+    function getLocationUrl($location) {
+        // TODO what about \n?
+        $location = urlencode($location);
+
+        $customConf = $this->getConf('customLocationUrlPrefix');
+        $prefix = false;
+
+        // See the comment in conf/metadata.php to understand the customLocationUrlPrefix property.
+        // DokuWiki encodes the property as comma-separated string. That is, if the string ' ' is
+        // present at the beginning or the end of the property, we interpret the rest as custom prefix.
+        if (strpos($customConf, ' ,') === 0) {
+            $prefix = substr($customConf, 2);
+        } elseif (strrpos($customConf, ', ') === strlen($customConf) - 2) {
+            $prefix = substr($customConf, 0 , -2);
+        }
+
+        if (!$prefix) {
+            $prefix = $this->getConf('locationUrlPrefix');
+        }
+
+        return $prefix ? ($prefix . $location) : false;
     }
 }
