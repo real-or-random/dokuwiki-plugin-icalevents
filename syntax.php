@@ -66,10 +66,15 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         return 'substition';
     }
     function getSort() {
-        return 42;
+        // The iCalendar plugin (and older versions of iCalEvents) used 42 here.
+        // So we need be stay below 42 to ensure an easy upgrade from iCalendar to iCalEvents.
+        return 41;
     }
     function connectTo($mode) {
-        $this->Lexer->addSpecialPattern('\{\{iCalEvents>.*?\}\}', $mode, 'plugin_icalevents');
+        // Subpatterns such as (iCalEvents|iCalendar) are not allowed
+        // see https://www.dokuwiki.org/devel:parser#subpatterns_not_allowed
+        $this->Lexer->addSpecialPattern('(?i:\{\{iCalEvents>.*\}\})', $mode, 'plugin_icalevents');
+        $this->Lexer->addSpecialPattern('(?i:\{\{iCalendar>.*\}\})', $mode, 'plugin_icalevents');
     }
     function getPType() {
         return 'block';
