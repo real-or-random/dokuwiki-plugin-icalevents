@@ -212,8 +212,8 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
 
                 // {summary_link}
                 $summary_link           = array();
-                $summary_link['class']  = 'urlintern';
-                $summary_link['style']  = 'background-image: url(lib/plugins/icalevents/ics.png); background-repeat:no-repeat; padding-left:16px; text-decoration: none;';
+                $summary_link['class']  = 'mediafile';
+                $summary_link['style']  = 'background-image: url(lib/plugins/icalevents/ics.png);';
                 $summary_link['pre']    = '';
                 $summary_link['suf']    = '';
                 $summary_link['more']   = 'rel="nofollow"';
