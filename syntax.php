@@ -73,8 +73,8 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
     function connectTo($mode) {
         // Subpatterns such as (iCalEvents|iCalendar) are not allowed
         // see https://www.dokuwiki.org/devel:parser#subpatterns_not_allowed
-        $this->Lexer->addSpecialPattern('(?i:\{\{iCalEvents>.*\}\})', $mode, 'plugin_icalevents');
-        $this->Lexer->addSpecialPattern('(?i:\{\{iCalendar>.*\}\})', $mode, 'plugin_icalevents');
+        $this->Lexer->addSpecialPattern('(?i:\{\{iCalEvents>.*?\}\})', $mode, 'plugin_icalevents');
+        $this->Lexer->addSpecialPattern('(?i:\{\{iCalendar>.*?\}\})', $mode, 'plugin_icalevents');
     }
     function getPType() {
         return 'block';
