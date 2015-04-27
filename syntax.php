@@ -35,21 +35,25 @@ if (!defined('DOKU_PLUGIN'))
     define('DOKU_PLUGIN', DOKU_INC . 'lib/plugins/');
 
 require_once DOKU_PLUGIN . 'syntax.php';
-require_once DOKU_INC . 'lib/plugins/icalevents/functions.php';
+
+require_once DOKU_PLUGIN . 'icalevents/externals/iCalcreator/iCalcreator.php';
+
 
 /**
- * This plugin gets an iCalendar file via HTTP and then
- * parses this file into an HTML table.
+ * This plugin gets an iCalendar file via HTTP,
+ * parses this file and renders it according to a template.
  *
- * Usage: {{iCalEvents>http://host/myCalendar.ics#from=today&previewDays=30}}
+ * Usage: {{iCalEvents>http://host/myCalendar.ics#from=today&to=+3 days}}
  *
  * You can filter the events that are shown with some parameters:
- * 1. 'from' a date from which on to show events. any text that strformat can accept
- *           for example "from=today".
- *           If 'from' is omitted, then all events are shown.
+ * 1. 'from' a date from which on to show events.
+ *           Can be any string that is accepted by strtotime(),
+ *           e.g., "from=today".
  *           http://www.php.net/manual/en/function.strtotime.php
- * 2. 'previewDays' amount of days to preview into the future.
- *           Default is 60 days.
+ *           If 'from' is omitted, then all events are shown.
+ * 2. 'to'   a date until which to show events. Similar to 'from'
+ *           Defaults to '+60 days'
+ *           Note: The 'previewDays' parameter is deprecated.
  * 3. 'showEndDates' to show end date or not defaults to value set in plugin config
  * 4. 'showCurrentWeek' highlight events matching current week.
  *           currently assumes all-day events end at 12:00 local time, like in Google Calendar
@@ -91,26 +95,6 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         list($icsURL, $flagStr) = explode('#', $match, 2);
         parse_str($flagStr, $params);
 
-        // Get the from parameter
-        if ($params['from'] == 'today') {
-            $from = 'today';
-        } elseif (preg_match('#(\d\d)/(\d\d)/(\d\d\d\d)#', $params['from'], $fromDate)) {
-            // must be MM/dd/yyyy
-            $from = mktime(0, 0, 0, $fromDate[1], $fromDate[2], $fromDate[3]);
-        } elseif (preg_match('/\d+/', $params['from'])) {
-            $from = $params['from'];
-        }
-        // Get the to parameter
-        if ($params['to'] == 'today') {
-            $to = 'today';
-
-        } elseif (preg_match('#(\d\d)/(\d\d)/(\d\d\d\d)#', $params['to'], $toDate)) {
-            // must be MM/dd/yyyy
-            $to = mktime(0, 0, 0, $toDate[1], $toDate[2], $toDate[3]);
-        } elseif (preg_match('/\d+/', $params['to'])) {
-            $to = $params['to'];
-        }
-
         // Get the numberOfEntries parameter
         if ($params['numberOfEntries']) {
             $numberOfEntries = $params['numberOfEntries'];
@@ -149,28 +133,23 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         }
 
         // Find out if the events should be sorted in reserve
-        $sort_descending = false;
-        if ($params['sort'] == 'DESC') {
-            $sort_descending = true;
-        }
+        $sortDescending = (mb_strtolower($params['sort']) == 'desc');
 
-        // Get the previewDays parameter
-        if ($params['previewDays']) {
-            $previewDays = $params['previewDays'];
+        // handle deprecated previewDays parameter
+        if (isset($params['previewDays']) && !isset($params['to'])) {
+            $toString = '+' . $params['previewDays'] . ' days';
         } else {
-            $previewDays = -1;
+            $toString = $params['to'];
         }
 
-        //echo "url=$icsURL from = $from    numberOfEntries = $numberOfEntries<br>";
         return array(
             $icsURL,
-            $from,
-            $to,
-            $previewDays,
+            $params['from'],
+            $toString,
             $numberOfEntries,
             $showEndDates,
             $template,
-            $sort_descending
+            $sortDescending
         );
     }
 
@@ -178,88 +157,102 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
      * loads the ics file via HTTP, parses it and renders an HTML table.
      */
     function render($mode, &$renderer, $data) {
-        list($url, $from, $to, $previewDays, $numberOfEntries, $showEndDates, $template, $sort_descending) = $data;
-        if ($from == 'today') {
-            $from = time();
-        }
-        if ($to == 'today') {
-            $to = mktime(24, 0, 0, date("m"), date("d"), date("Y"));
+        if ($mode != 'xhtml') {
+            return false;
         }
 
-        list($url, $from, $previewSec, $dateFormat, $showEndDates, $showCurrentWeek) = $data;
-        $ret = '';
-        if ($mode == 'xhtml') {
-            // parse the ICS file
-            $entries = $this->parseIcs($url, $from, $to, $previewDays, $numberOfEntries, $sort_descending);
+        // TODO $numberOfEntries not implemented
+        list($url, $fromString, $toString, $numberOfEntries, $showEndDates, $template, $sortDescending) = $data;
+        $from = strtotime($fromString);
+        $to = strtotime($toString ?: '+30 days');
 
-            if ($this->error) {
-                $renderer->doc .= "Error in Plugin iCalEvents: " . $this->error;
-                return true;
-            }
+        // If dateformat is set in plugin configuration ('dformat'), then use it.
+        // Otherwise fall back to dokuwiki's default dformat from the global /conf/dokuwiki.php.
+        $dateFormat = $this->getConf('dformat') ?: $conf['dformat'];
+        $timeFormat = $this->getConf('tformat') ?: $conf['tformat'];
 
-            //loop over entries and create a table row for each one.
-            $rowCount = 0;
+        // parse the ICS file
+        $http = new DokuHTTPClient();
+        if (!$http->get($url)) {
+            $renderer->doc .= 'Error in Plugin iCalEvents:';
+            $renderer->doc .= 'Could not get ' . hsc($url);
+            $renderer->doc .= ': ' . $http->status;
+            return false;
+        }
+        $content = $http->resp_body;
 
-            foreach ($entries as $entry) {
-                $rowCount++;
+        $config = array('unique_id' => 'dokuwiki-plugin-icalevents');
+        $ical = new vcalendar($config);
+        $ical->parse($content);
 
-                // Get the html for the entries
-                $entryTemplate = $template;
+        $events = $ical->selectComponents(date('Y', $from), date('m', $from), date('d', $from), date('Y', $to), date('m', $to), date('d', $to), 'vevent', true);
+        if ($events) {
+            // compute timestamps etc. using handleDatetime, and add result to array
+            $events = array_map(
+                function($comp) use ($dateFormat, $timeFormat) {
+                    return array('event' => $comp, 'datetime' => static::handleDatetime($comp, $dateFormat, $timeFormat));
+                }, $events
+            );
+
+            // sort events
+            uasort($events,
+                function($a, $b) use ($sortDescending) {
+                    return ($sortDescending ? -1 : 1) * ($a['datetime']['start']['timestamp'] - $b['datetime']['start']['timestamp']);
+                }
+            );
+
+            $ret = '';
+            // loop over events and render template for each one
+            foreach ($events as &$entry) {
+                 $event = &$entry['event'];
+                 $datetime = &$entry['datetime'];
+                 if ($datetime === false) {
+                     continue;
+                 }
+
+                // Get a copy of the template for the events
+                $eventTemplate = $template;
 
                 // {description}
-                $entryTemplate = str_replace('{description}', $entry['description'], $entryTemplate);
+                $eventTemplate = str_replace('{description}', $event->getProperty('description'), $eventTemplate);
 
                 // {summary}
-                $entryTemplate = str_replace('{summary}', $entry['summary'], $entryTemplate);
+                $eventTemplate = str_replace('{summary}', $event->getProperty('summary'), $eventTemplate);
 
                 // See if a location was set
-                $location = $entry['location'];
+                $location = $event->getProperty('location');
                 if ($location != '') {
                     // {location}
-                    $entryTemplate = str_replace('{location}', $location, $entryTemplate);
+                    $eventTemplate = str_replace('{location}', $location, $eventTemplate);
 
                     // {location_link}
                     // TODO other providers
                     $location_link = 'http://maps.google.com/maps?q=' . str_replace(' ', '+', str_replace(',', ' ', $location));
-                    $entryTemplate = str_replace('{location_link}', '[[' . $location_link . '|' . $location . ']]', $entryTemplate);
+                    $eventTemplate = str_replace('{location_link}', '[[' . $location_link . '|' . $location . ']]', $eventTemplate);
                 } else {
                     // {location}
-                    $entryTemplate = str_replace('{location}', 'Unknown', $entryTemplate);
+                    $eventTemplate = str_replace('{location}', 'Unknown', $eventTemplate);
                     // {location_link}
-                    $entryTemplate = str_replace('{location_link}', 'Unknown', $entryTemplate);
+                    $eventTemplate = str_replace('{location_link}', 'Unknown', $eventTemplate);
                 }
 
-                $dateString = "";
+                $start = &$datetime['start'];
+                $end   = &$datetime['end'];
 
-                // Get the start and end day
-                $startDay = date("Ymd", $entry['startunixdate']);
-                $endDay   = date("Ymd", $entry['endunixdate']);
-
-                if ($endDay > $startDay) {
-                    if ($entry['allday']) {
-                        $dateString = $entry['startdate'] . '-' . $entry['enddate'];
-                    } else {
-                        $dateString = $entry['startdate'] . ' ' . $entry['starttime'] . '-' . $entry['enddate'] . ' ' . $entry['endtime'];
-                    }
-                } else {
-                    if ($showEndDates) {
-                        if ($entry['allday']) {
-                            $dateString = $entry['startdate'];
-                        } else {
-                            $dateString = $entry['startdate'] . ' ' . $entry['starttime'] . '-' . $entry['endtime'];
-                        }
-                    } else {
-                        $dateString = $entry['startdate'];
-                    }
+                $startString = $start['datestring'] . ' ' . $start['timestring'];
+                $endString = '';
+                if ($end['date'] != $start['date'] || $showEndDates) {
+                    $endString .= $end['datestring'] . ' ';
                 }
+                $endString .= $end['timestring'];
+                // add dash only if there is end date or time
+                $whenString = $startString . ($endString ? ' - ' : '') . $endString;
 
                 // {date}
-                $entryTemplate = str_replace('{date}', $dateString, $entryTemplate);
+                $eventTemplate = str_replace('{date}', $whenString, $eventTemplate);
+                $eventTemplate .= "\n";
 
-                $ret .= $entryTemplate . '
-';
-
-            // 			$renderer->doc .= $ret;
+                $ret .= $eventTemplate;
 
                 // prepare summary link here
                 $summary_link           = array();
@@ -269,130 +262,94 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
                 $summary_link['suf']    = '';
                 $summary_link['more']   = 'rel="nofollow"';
                 $summary_link['target'] = '';
-                $summary_link['title']  = $entry['summary'];
-                $summary_link['url']    = 'lib/plugins/icalevents/vevent.php?vevent=' . urlencode($entry['vevent']);
-                $summary_link['name']   = $entry['summary'];
+                $summary_link['title']  = $event->getProperty('summary');
+                //FIXME does not work at all
+                $summary_link['url']    = 'lib/plugins/icalevents/vevent.php?uid=' . rawurlencode($event->getProperty('uid'));
+                $summary_link['url']   .= '&url=' . rawurlencode($url);
+                $summary_link['name']   = $event->getProperty('summary');
 
                 $summary_links[] = $renderer->_formatLink($summary_link);
             }
-
-            $html = p_render($mode, p_get_instructions($ret), $info);
-            $html = str_replace('\\n', '<br />', $html);
-
-            // Replace {summary_link}s with the entries of $summary_links and concatenate to output.
-            // We handle it here, because it is raw HTML generated by us, not DokuWiki syntax.
-            $html = explode('{summary_link}', $html);
-            for ($i = 0; $i < count($html); $i++) {
-                $renderer->doc .= $html[$i];
-                $renderer->doc .= $summary_links[$i];
-            }
-
-            return true;
         }
-        return false;
+
+        $html = p_render($mode, p_get_instructions($ret), $info);
+        $html = str_replace('\\n', '<br />', $html);
+
+        // Replace {summary_link}s with the entries of $summary_links and concatenate to output.
+        // We handle it here, because it is raw HTML generated by us, not DokuWiki syntax.
+        $html = explode('{summary_link}', $html);
+        for ($i = 0; $i < count($html); $i++) {
+            $renderer->doc .= $html[$i];
+            $renderer->doc .= $summary_links[$i];
+        }
+
+        return true;
     }
 
     /**
-     * Load the iCalendar file from 'url' and parse all
-     * events that are within the range
-     * from <= eventdate <= from+previewSec
-     *
-     * @param  url HTTP URL of an *.ics file
-     * @param  from unix timestamp in seconds (may be null)
-     * @param  to unix timestamp in seconds (may be null)
-     * @param  previewDays Limit the entries to 30 days in the future
-     * @param  numberOfEntries Number of entries to display
-     * @param  $sort_descending
-     * @return an array of entries sorted by their startdate
-     */
-    protected function parseIcs($url, $from, $to, $previewDays, $numberOfEntries, $sort_descending) {
-        global $conf;
+    * computes various values on a datetime array returned by iCalcreator
+    */
+    static function handleDatetime($event, $dateFormat, $timeFormat) {
+        foreach (array('start', 'end') as $which) {
+            $prop = $event->getProperty('dt' . $which, false, true);
+            $datetime = $prop['value'];
+            $tz = $prop['params']['TZID'];
+            $dt = &$res[$which];
 
-        $http = new DokuHTTPClient();
-        if (!$http->get($url)) {
-            $this->error = "Could not get '$url': " . $http->status;
-            return array();
-        }
-        $content = $http->resp_body;
-        $entries = array();
+            $dt['date'] = sprintf(iCalUtilityFunctions::$fmt['Ymd'], $datetime['year'], $datetime['month'], $datetime['day']);
+            $dt['time'] = sprintf(iCalUtilityFunctions::$fmt['His'], $datetime['hour'], $datetime['min'], $datetime['sec']);
 
-        // If dateformat is set in plugin configuration ('dformat'), then use it.
-        // Otherwise fall back to dokuwiki's default dformat from the global /conf/dokuwiki.php.
-        $dateFormat = $this->getConf('dformat') ? $this->getConf('dformat') : $conf['dformat'];
-        //$timeFormat = $this->getConf('tformat') ? $this->getConf('tformat') : $conf['tformat'];
+            $full = $dt['date'] . 'T' . $dt['time'];
 
-        // regular expressions for items that we want to extract from the iCalendar file
-        $regex_vevent = '/BEGIN:VEVENT(.*?)END:VEVENT/s';
-
-        //split the whole content into VEVENTs
-        preg_match_all($regex_vevent, $content, $matches, PREG_PATTERN_ORDER);
-
-        if ($previewDays > 0) {
-            $previewSec = $previewDays * 24 * 3600;
-        } else {
-            $previewSec = -1;
-        }
-
-        // loop over VEVENTs and parse out some items
-        foreach ($matches[1] as $vevent) {
-            $entry = parse_vevent($vevent, $dateFormat);
-
-            // if entry is to old then filter it
-            if ($from && $entry['endunixdate']) {
-                if ($entry['endunixdate'] < $from) {
-                    continue;
+            $dto = null;
+            try {
+                if (iCalUtilityFunctions::_isOffset($tz)) {
+                    $dto = new DateTime($full, new DateTimeZone('UTC'));
+                    $dto->modify('+' . iCalUtilityFunctions::_tz2offset($tz) . ' seconds');
+                } else {
+                    $local = false;
+                    if ($tz == '') {
+                        // floating event
+                        $local = true;
+                    } else {
+                        try {
+                            $dtz = new DateTimeZone($tz);
+                            $dto = new DateTime($full, $dtz);
+                        } catch (Exception $eTz) {
+                            // invalid timezone, fall back to local timezone.
+                            $local = true;
+                        }
+                    }
+                    if ($local) {
+                        $dto = new DateTime($full);
+                    }
                 }
-                if (($previewSec > 0) && ($entry['startunixdate'] > time() + $previewSec)) {
-                    continue;
-                }
+                $dt['timestamp'] = $dto->getTimestamp();
+            } catch (Exception $eDate) {
+                // invalid date or time
+                $dt['timestamp'] = '';
+                $dt['datestring'] = '';
+                $dt['timestring'] = '';
+                continue;
             }
 
-            // if entry is to new then filter it
-            if ($to && $entry['startunixdate']) {
-                if ($entry['startunixdate'] > $to) {
-                    continue;
-                }
+            // from the iCalcreator docs:
+            //  "Notice that an end date without a time is in effect midnight of the day before the date, so for timeless dates,
+            //  use the date following the event date for it to be correct."
+            // So we correct the end date in this case.
+            if (static::isAllDayEvent($event) && $which == 'end') {
+                $dto->modify('-1 day');
             }
-
-            $entries[] = $entry;
+            $dt['datestring'] = strftime($dateFormat, $dto->getTimestamp());
+            $dt['timestring'] = !static::isAllDayEvent($event) ?  strftime($timeFormat, $dto->getTimestamp()) : '';
         }
-
-        if ($to && ($from == null)) {
-            // sort entries by startunixdate
-            usort($entries, 'compareByEndUnixDate');
-        } elseif ($from) {
-            // sort entries by startunixdate
-            usort($entries, 'compareByStartUnixDate');
-        } elseif ($sort_descending) {
-            $entries = array_reverse($entries, true);
-        }
-
-        // See if a maximum number of entries was set
-        if ($numberOfEntries > 0) {
-            $entries = array_slice($entries, 0, $numberOfEntries);
-
-            // Reverse array?
-            if ($from && $sort_descending) {
-                $entries = array_reverse($entries, true);
-            } elseif ($to && !$from && (!$sort_descending)) {
-                $entries = array_reverse($entries, true);
-            }
-        }
-
-        return $entries;
+        return $res;
     }
-}
 
-/**
- * compares two entries by their startunixdate value
- */
-function compareByStartUnixDate($a, $b) {
-    return strnatcmp($a['startunixdate'], $b['startunixdate']);
-}
-
-/**
- * compares two entries by their startunixdate value
- */
-function compareByEndUnixDate($a, $b) {
-    return strnatcmp($b['endunixdate'], $a['endunixdate']);
+    /**
+    * determines if an iCalcreator event is an all-day event
+    */
+    static function isAllDayEvent($event) {
+        return !isset($event->getProperty('dtstart')['hour']);
+    }
 }
