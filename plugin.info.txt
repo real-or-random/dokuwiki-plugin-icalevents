@@ -3,5 +3,5 @@ author Robert Rackl, Elan Ruusamäe, Jannes Drost-Tenfelde, Tim Ruffing
 email  tim@timruffing.de
 date   2012-09-09
 name   iCalEvents
-desc   Parses an iCalalendar .ics file and renders it as an HTML table
+desc   Renders an iCalendar file, e.g., as a table.
 url    http://www.dokuwiki.org/plugin:icalevents

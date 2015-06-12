@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin iCalEvents: Renders an iCal .ics file as an HTML table.
+ * Plugin iCalEvents: Renders an iCalendar file, e.g., as a table.
  *
  * Copyright (C) 2010-2012, 2015
  * Robert Rackl, Elan Ruusamäe, Jannes Drost-Tenfelde, Tim Ruffing
