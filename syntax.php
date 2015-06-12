@@ -5,18 +5,21 @@
  * Copyright (C) 2010-2012, 2015
  * Robert Rackl, Elan Ruusamäe, Jannes Drost-Tenfelde, Tim Ruffing
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2
- * as published by the Free Software Foundation.
+ * This file is part of the DokuWiki iCalEvents plugin.
+ *
+ * The DokuWiki iCalEvents plugin program is free software:
+ * you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License version 2 as published by the Free
+ * Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * You should have received a copy of the GNU General Public License
+ * version 2 along with the DokuWiki iCalEvents plugin program.  If
+ * not, see <http://www.gnu.org/licenses/gpl-2.0.html>.
  *
  * @license    https://www.gnu.org/licenses/gpl-2.0.html GPL2
  * @version    3.0.0
@@ -35,9 +38,7 @@ if (!defined('DOKU_PLUGIN'))
     define('DOKU_PLUGIN', DOKU_INC . 'lib/plugins/');
 
 require_once DOKU_PLUGIN . 'syntax.php';
-
 require_once DOKU_PLUGIN . 'icalevents/externals/iCalcreator/iCalcreator.php';
-
 
 /**
  * This plugin gets an iCalendar file via HTTP,
@@ -157,7 +158,8 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
      * loads the ics file via HTTP, parses it and renders an HTML table.
      */
     function render($mode, &$renderer, $data) {
-        if ($mode != 'xhtml') {
+        global $ID;
+        if ($mode != 'xhtml' && $mode != 'icalevents') {
             return false;
         }
 
@@ -165,11 +167,6 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         list($url, $fromString, $toString, $numberOfEntries, $showEndDates, $template, $sortDescending) = $data;
         $from = strtotime($fromString);
         $to = strtotime($toString ?: '+30 days');
-
-        // If dateformat is set in plugin configuration ('dformat'), then use it.
-        // Otherwise fall back to dokuwiki's default dformat from the global /conf/dokuwiki.php.
-        $dateFormat = $this->getConf('dformat') ?: $conf['dformat'];
-        $timeFormat = $this->getConf('tformat') ?: $conf['tformat'];
 
         // parse the ICS file
         $http = new DokuHTTPClient();
@@ -185,102 +182,123 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         $ical = new vcalendar($config);
         $ical->parse($content);
 
-        $events = $ical->selectComponents(date('Y', $from), date('m', $from), date('d', $from), date('Y', $to), date('m', $to), date('d', $to), 'vevent', true);
-        if ($events) {
-            // compute timestamps etc. using handleDatetime, and add result to array
-            $events = array_map(
-                function($comp) use ($dateFormat, $timeFormat) {
-                    return array('event' => $comp, 'datetime' => static::handleDatetime($comp, $dateFormat, $timeFormat));
-                }, $events
-            );
+        if ($mode == 'xhtml') {
+            // If dateformat is set in plugin configuration ('dformat'), then use it.
+            // Otherwise fall back to dokuwiki's default dformat from the global /conf/dokuwiki.php.
+            $dateFormat = $this->getConf('dformat') ?: $conf['dformat'];
+            $timeFormat = $this->getConf('tformat') ?: $conf['tformat'];
 
-            // sort events
-            uasort($events,
-                function($a, $b) use ($sortDescending) {
-                    return ($sortDescending ? -1 : 1) * ($a['datetime']['start']['timestamp'] - $b['datetime']['start']['timestamp']);
+            $events = $ical->selectComponents(date('Y', $from), date('m', $from), date('d', $from), date('Y', $to), date('m', $to), date('d', $to), 'vevent', true);
+            if ($events) {
+                // compute timestamps etc. using handleDatetime, and add result to array
+                $events = array_map(
+                    function($comp) use ($dateFormat, $timeFormat) {
+                        return array('event' => $comp, 'datetime' => static::handleDatetime($comp, $dateFormat, $timeFormat));
+                    }, $events
+                );
+
+                // sort events
+                uasort($events,
+                    function($a, $b) use ($sortDescending) {
+                        return ($sortDescending ? -1 : 1) * ($a['datetime']['start']['timestamp'] - $b['datetime']['start']['timestamp']);
+                    }
+                );
+
+                $ret = '';
+                // loop over events and render template for each one
+                foreach ($events as &$entry) {
+                    $event = &$entry['event'];
+                    $datetime = &$entry['datetime'];
+                    if ($datetime === false) {
+                        continue;
+                    }
+
+                    // Get a copy of the template for the events
+                    $eventTemplate = $template;
+
+                    // {description}
+                    $eventTemplate = str_replace('{description}', $event->getProperty('description'), $eventTemplate);
+
+                    // {summary}
+                    $eventTemplate = str_replace('{summary}', $event->getProperty('summary'), $eventTemplate);
+
+                    // See if a location was set
+                    $location = $event->getProperty('location');
+                    if ($location != '') {
+                        // {location}
+                        $eventTemplate = str_replace('{location}', $location, $eventTemplate);
+
+                        // {location_link}
+                        // TODO other providers
+                        $location_link = 'http://maps.google.com/maps?q=' . str_replace(' ', '+', str_replace(',', ' ', $location));
+                        $eventTemplate = str_replace('{location_link}', '[[' . $location_link . '|' . $location . ']]', $eventTemplate);
+                    } else {
+                        // {location}
+                        $eventTemplate = str_replace('{location}', 'Unknown', $eventTemplate);
+                        // {location_link}
+                        $eventTemplate = str_replace('{location_link}', 'Unknown', $eventTemplate);
+                    }
+
+                    $start = &$datetime['start'];
+                    $end   = &$datetime['end'];
+
+                    $startString = $start['datestring'] . ' ' . $start['timestring'];
+                    $endString = '';
+                    if ($end['date'] != $start['date'] || $showEndDates) {
+                        $endString .= $end['datestring'] . ' ';
+                    }
+                    $endString .= $end['timestring'];
+                    // add dash only if there is end date or time
+                    $whenString = $startString . ($endString ? ' - ' : '') . $endString;
+
+                    // {date}
+                    $eventTemplate = str_replace('{date}', $whenString, $eventTemplate);
+                    $eventTemplate .= "\n";
+
+                    $ret .= $eventTemplate;
+
+                    // prepare summary link here
+                    $summary_link           = array();
+                    $summary_link['class']  = 'mediafile';
+                    $summary_link['style']  = 'background-image: url(lib/plugins/icalevents/ics.png);';
+                    $summary_link['pre']    = '';
+                    $summary_link['suf']    = '';
+                    $summary_link['more']   = 'rel="nofollow"';
+                    $summary_link['target'] = '';
+                    $summary_link['title']  = $event->getProperty('summary');
+                    $summary_link['url']    = exportlink($ID, 'icalevents', array('uid' => rawurlencode($event->getProperty('uid'))));
+                    $summary_link['name']   = $event->getProperty('summary');
+
+                    $summary_links[] = $renderer->_formatLink($summary_link);
                 }
-            );
-
-            $ret = '';
-            // loop over events and render template for each one
-            foreach ($events as &$entry) {
-                 $event = &$entry['event'];
-                 $datetime = &$entry['datetime'];
-                 if ($datetime === false) {
-                     continue;
-                 }
-
-                // Get a copy of the template for the events
-                $eventTemplate = $template;
-
-                // {description}
-                $eventTemplate = str_replace('{description}', $event->getProperty('description'), $eventTemplate);
-
-                // {summary}
-                $eventTemplate = str_replace('{summary}', $event->getProperty('summary'), $eventTemplate);
-
-                // See if a location was set
-                $location = $event->getProperty('location');
-                if ($location != '') {
-                    // {location}
-                    $eventTemplate = str_replace('{location}', $location, $eventTemplate);
-
-                    // {location_link}
-                    // TODO other providers
-                    $location_link = 'http://maps.google.com/maps?q=' . str_replace(' ', '+', str_replace(',', ' ', $location));
-                    $eventTemplate = str_replace('{location_link}', '[[' . $location_link . '|' . $location . ']]', $eventTemplate);
-                } else {
-                    // {location}
-                    $eventTemplate = str_replace('{location}', 'Unknown', $eventTemplate);
-                    // {location_link}
-                    $eventTemplate = str_replace('{location_link}', 'Unknown', $eventTemplate);
-                }
-
-                $start = &$datetime['start'];
-                $end   = &$datetime['end'];
-
-                $startString = $start['datestring'] . ' ' . $start['timestring'];
-                $endString = '';
-                if ($end['date'] != $start['date'] || $showEndDates) {
-                    $endString .= $end['datestring'] . ' ';
-                }
-                $endString .= $end['timestring'];
-                // add dash only if there is end date or time
-                $whenString = $startString . ($endString ? ' - ' : '') . $endString;
-
-                // {date}
-                $eventTemplate = str_replace('{date}', $whenString, $eventTemplate);
-                $eventTemplate .= "\n";
-
-                $ret .= $eventTemplate;
-
-                // prepare summary link here
-                $summary_link           = array();
-                $summary_link['class']  = 'mediafile';
-                $summary_link['style']  = 'background-image: url(lib/plugins/icalevents/ics.png);';
-                $summary_link['pre']    = '';
-                $summary_link['suf']    = '';
-                $summary_link['more']   = 'rel="nofollow"';
-                $summary_link['target'] = '';
-                $summary_link['title']  = $event->getProperty('summary');
-                //FIXME does not work at all
-                $summary_link['url']    = 'lib/plugins/icalevents/vevent.php?uid=' . rawurlencode($event->getProperty('uid'));
-                $summary_link['url']   .= '&url=' . rawurlencode($url);
-                $summary_link['name']   = $event->getProperty('summary');
-
-                $summary_links[] = $renderer->_formatLink($summary_link);
             }
-        }
 
-        $html = p_render($mode, p_get_instructions($ret), $info);
-        $html = str_replace('\\n', '<br />', $html);
+            $html = p_render($mode, p_get_instructions($ret), $info);
+            $html = str_replace('\\n', '<br />', $html);
 
-        // Replace {summary_link}s with the entries of $summary_links and concatenate to output.
-        // We handle it here, because it is raw HTML generated by us, not DokuWiki syntax.
-        $html = explode('{summary_link}', $html);
-        for ($i = 0; $i < count($html); $i++) {
-            $renderer->doc .= $html[$i];
-            $renderer->doc .= $summary_links[$i];
+            // Replace {summary_link}s with the entries of $summary_links and concatenate to output.
+            // We handle it here, because it is raw HTML generated by us, not DokuWiki syntax.
+            $html = explode('{summary_link}', $html);
+            for ($i = 0; $i < count($html); $i++) {
+                $renderer->doc .= $html[$i];
+                $renderer->doc .= $summary_links[$i];
+            }
+        } else {
+            // In this case, we have $mode == 'icalevents'.
+            // That implies that $renderer is an instance of renderer_plugin_icalevents.
+            $uid = rawurldecode($_GET['uid']);
+            if (!$renderer->hasSeenUID($uid)) {
+                $comp = $ical->getComponent($uid);
+                if (!$comp) {
+                    http_status(404);
+                    exit;
+                }
+                else {
+                    // $dummy is necessary, because the argument is call-by-reference.
+                    $renderer->doc .= $comp->createComponent($dummy = null);
+                }
+                $renderer->addSeenUID($uid);
+            }
         }
 
         return true;
