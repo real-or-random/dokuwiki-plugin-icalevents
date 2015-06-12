@@ -70,17 +70,20 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
     function getType() {
         return 'substition';
     }
+
     function getSort() {
         // The iCalendar plugin (and older versions of iCalEvents) used 42 here.
         // So we need be stay below 42 to ensure an easy upgrade from iCalendar to iCalEvents.
         return 41;
     }
+
     function connectTo($mode) {
         // Subpatterns such as (iCalEvents|iCalendar) are not allowed
         // see https://www.dokuwiki.org/devel:parser#subpatterns_not_allowed
         $this->Lexer->addSpecialPattern('(?i:\{\{iCalEvents>.*?\}\})', $mode, 'plugin_icalevents');
         $this->Lexer->addSpecialPattern('(?i:\{\{iCalendar>.*?\}\})', $mode, 'plugin_icalevents');
     }
+
     function getPType() {
         return 'block';
     }
@@ -97,36 +100,23 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         parse_str($flagStr, $params);
 
         // Get the numberOfEntries parameter
-        if ($params['numberOfEntries']) {
-            $numberOfEntries = $params['numberOfEntries'];
-        } else {
-            $numberOfEntries = -1;
-        }
+        // TODO rename to maxEntries
+        $numberOfEntries = $params['numberOfEntries'] ? $params['numberOfEntries'] : 0;
 
-        // Get the show end dates parameter
-        if ($params['showEndDates'] == 1) {
-            $showEndDates = true;
-        } else {
-            $showEndDates = false;
-        }
-        // Get the show as list parameter
-        if ($params['showAs']) {
-            $showAs = $params['showAs'];
-        } else {
-            $showAs = 'default';
-        }
+        $showEndDates = filter_var($params['showEndDates'], FILTER_VALIDATE_BOOLEAN);
 
         // Get the showAs parameter (since v1.4)
         if ($params['showAs']) {
             $showAs = $params['showAs'];
         } else {
-            // Backward compatibiltiy of v1.3 or earlier
-            if ($params['showAsList'] == 1) {
+            // Backward compatibility of v1.3 or earlier
+            if (filter_var($params['showAsList'], FILTER_VALIDATE_BOOLEAN)) {
                 $showAs = 'list';
             } else {
                 $showAs = 'default';
             }
         }
+
         // Get the appropriate template
         $template = $this->getConf($showAs);
         if (!isset($template) || $template == '') {
