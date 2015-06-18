@@ -99,13 +99,12 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         list($icsURL, $flagStr) = explode('#', $match, 2);
         parse_str($flagStr, $params);
 
-        // Get the numberOfEntries parameter
-        // TODO rename to maxEntries
-        $numberOfEntries = $params['numberOfEntries'] ? $params['numberOfEntries'] : 0;
+        // maxNumberOfEntries was called numberOfEntries earlier.
+        // We support both versions for backwards compatibility.
+        $maxNumberOfEntries = (int) ($params['maxNumberOfEntries'] ?: ($params['numberOfEntries'] ?: -1));
 
         $showEndDates = filter_var($params['showEndDates'], FILTER_VALIDATE_BOOLEAN);
 
-        // Get the showAs parameter (since v1.4)
         if ($params['showAs']) {
             $showAs = $params['showAs'];
         } else {
@@ -137,7 +136,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
             $icsURL,
             $params['from'],
             $toString,
-            $numberOfEntries,
+            $maxNumberOfEntries,
             $showEndDates,
             $template,
             $sortDescending
@@ -153,8 +152,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
             return false;
         }
 
-        // TODO $numberOfEntries not implemented
-        list($url, $fromString, $toString, $numberOfEntries, $showEndDates, $template, $sortDescending) = $data;
+        list($url, $fromString, $toString, $maxNumberOfEntries, $showEndDates, $template, $sortDescending) = $data;
         $from = strtotime($fromString);
         $to = strtotime($toString ?: '+30 days');
 
@@ -187,6 +185,13 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
                     }, $events
                 );
 
+                // filter invalid events
+                $events = array_filter($events,
+                    function($comp) {
+                        return $comp['datetime'] !== false;
+                    }
+                );
+
                 // sort events
                 uasort($events,
                     function($a, $b) use ($sortDescending) {
@@ -194,14 +199,15 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
                     }
                 );
 
+                if ($maxNumberOfEntries >= 0) {
+                    $events = array_slice($events, 0, $maxNumberOfEntries);
+                }
+
                 $ret = '';
                 // loop over events and render template for each one
                 foreach ($events as &$entry) {
                     $event = &$entry['event'];
                     $datetime = &$entry['datetime'];
-                    if ($datetime === false) {
-                        continue;
-                    }
 
                     // Get a copy of the template for the events
                     $eventTemplate = $template;
