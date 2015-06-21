@@ -269,7 +269,13 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
                 }
             }
 
+            // Wrap {summary_link} into <nowiki> to ensure that the DokuWiki renderer won't touch it.
+            $dokuwikiOutput = str_replace('{summary_link}', '<nowiki>{summary_link}</nowiki>', $dokuwikiOutput);
+
+            // Pass output through the DokuWiki renderer.
             $html = p_render($mode, p_get_instructions($dokuwikiOutput), $info);
+
+            // Replace line breaks by their XHTML equivalent.
             $html = str_replace('\\n', '<br />', $html);
 
             // Replace {summary_link}s with the entries of $summary_links and concatenate to output.
