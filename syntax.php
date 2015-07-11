@@ -212,13 +212,14 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
                     $eventTemplate = $template;
 
                     // {description}
-                    $eventTemplate = str_replace('{description}', $event->getProperty('description'), $eventTemplate);
+                    $eventTemplate = str_replace('{description}', static::textPropertyOfEventAsWiki($event, 'description'), $eventTemplate);
 
                     // {summary}
-                    $eventTemplate = str_replace('{summary}', $event->getProperty('summary'), $eventTemplate);
+                    $summary = static::textPropertyOfEventAsWiki($event, 'summary');
+                    $eventTemplate = str_replace('{summary}', $summary, $eventTemplate);
 
                     // See if a location was set
-                    $location = $event->getProperty('location');
+                    $location = static::textPropertyOfEvent($event, 'location');
                     if ($location != '') {
                         // {location}
                         $eventTemplate = str_replace('{location}', $location, $eventTemplate);
@@ -258,9 +259,10 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
                     $summary_link['suf']    = '';
                     $summary_link['more']   = 'rel="nofollow"';
                     $summary_link['target'] = '';
-                    $summary_link['title']  = $event->getProperty('summary');
-                    $summary_link['url']    = exportlink($ID, 'icalevents', array('uid' => rawurlencode($event->getProperty('uid'))));
-                    $summary_link['name']   = $event->getProperty('summary');
+                    $summary_link['title']  = $summary;
+                    $uid = static::textPropertyOfEvent($event, 'uid');
+                    $summary_link['url']    = exportlink($ID, 'icalevents', array('uid' => rawurlencode($uid)));
+                    $summary_link['name']   = $summary;
 
                     $summary_links[] = $renderer->_formatLink($summary_link);
 
@@ -375,6 +377,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
     * Each element of $replace is used $count times, i.e., the first $count occurrences of $needle in
     * $haystack are replaced by $replace[0], the next $count occurrences by $replace[1], and so on.
     * If $count is 0, then $haystack is returned without modification.
+    *
     * @param string   $needle   substring to replace
     * @param string[] $replace  a numerically indexed array of substitutions for $needle
     * @param int      $count    number of $needles to be replaced by the same element of $replace
@@ -399,9 +402,41 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         return $res;
     }
 
+    /**
+    * Wrapper for vevent::getProperty(), because that method does not unescape iCalendar TEXT
+    * properties correctly.
+    *
+    * @see https://github.com/iCalcreator/iCalcreator/issues/16
+    * @uses vevent::getProperty()
+    * @param vevent  $event
+    * @param string  $property
+    * @return string
+    */
+    static function textPropertyOfEvent($event, $property) {
+        return str_ireplace('\n', "\n", $event->getProperty($property));
+    }
+
+    /**
+    * Wrapper for vevent::getProperty().
+    * Line breaks are replaced by DokuWiki's \\ line breaks.
+    *
+    * @uses vevent::getProperty()
+    * @param vevent  $event
+    * @param string  $property
+    * @return string
+    */
+    static function textPropertyOfEventAsWiki($event, $property) {
+        // First, destroy existing </nowiki> end tags.
+        // Second, replace line breaks by DokuWiki line breaks.
+        $needle   = array('</nowiki>'                 ,  '\n');
+        $haystack = array('</now</nowiki><nowiki>iki>',  '</nowiki>\\\\ <nowiki>');
+        return '<nowiki>' . str_ireplace($needle, $haystack, $event->getProperty($property)) . '</nowiki>';
+    }
+
+
     function getLocationUrl($location) {
-        // TODO what about \n?
-        $location = urlencode($location);
+        // Some map providers don't like line break characters.
+        $location = urlencode(str_replace("\n", ' ', $location));
 
         $customConf = $this->getConf('customLocationUrlPrefix');
         $prefix = false;
