@@ -96,7 +96,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         // strip {{iCalEvents> or {{iCalendar from start and strip }} from end
         $match = substr($match, strpos($match, '>') + 1, -2);
 
-        list($icsURL, $flagStr) = explode('#', $match, 2);
+        list($source, $flagStr) = explode('#', $match, 2);
         parse_str($flagStr, $params);
 
         // maxNumberOfEntries was called numberOfEntries earlier.
@@ -133,7 +133,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         }
 
         return array(
-            $icsURL,
+            $source,
             $params['from'],
             $toString,
             $maxNumberOfEntries,
@@ -152,19 +152,17 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
             return false;
         }
 
-        list($url, $fromString, $toString, $maxNumberOfEntries, $showEndDates, $template, $sortDescending) = $data;
+        list($source, $fromString, $toString, $maxNumberOfEntries, $showEndDates, $template, $sortDescending) = $data;
         $from = strtotime($fromString);
         $to = strtotime($toString ?: '+30 days');
 
-        // parse the ICS file
-        $http = new DokuHTTPClient();
-        if (!$http->get($url)) {
-            $renderer->doc .= 'Error in Plugin iCalEvents:';
-            $renderer->doc .= 'Could not get ' . hsc($url);
-            $renderer->doc .= ': ' . $http->status;
+        try {
+            $content = static::readInputFile($source);
+        } catch (Exception $e) {
+            $renderer->doc .= 'Error in Plugin iCalEvents: ' . $e->getMessage();
             return false;
         }
-        $content = $http->resp_body;
+
         $config = array('unique_id' => 'dokuwiki-plugin-icalevents');
         $ical = new vcalendar($config);
         $ical->parse($content);
@@ -305,6 +303,31 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         }
 
         return true;
+    }
+
+    /**
+    * Read an iCalendar file from a remote server via HTTP(S) or from a local media file
+    *
+    * @param string $source URL or media id
+    * @return string
+    */
+    static function readInputFile($source) {
+        if (preg_match('#https?://#i', $source)) {
+            $http = new DokuHTTPClient();
+            if (!$http->get($source)) {
+                $error = 'could not get ' . hsc($source) . ', HTTP status ' . $http->status . '. ';
+                throw new Exception($error);
+            }
+            return $http->resp_body;
+        } else {
+            $path = mediaFN($source);
+            $contents = @file_get_contents($path);
+            if ($contents === false) {
+                $error = 'could not read media file ' . hsc($source) . '. ';
+                throw new Exception($error);
+            }
+            return $contents;
+        }
     }
 
     /**
