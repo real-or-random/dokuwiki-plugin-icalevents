@@ -306,11 +306,11 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
     }
 
     /**
-    * Read an iCalendar file from a remote server via HTTP(S) or from a local media file
-    *
-    * @param string $source URL or media id
-    * @return string
-    */
+     * Read an iCalendar file from a remote server via HTTP(S) or from a local media file
+     *
+     * @param string $source URL or media id
+     * @return string
+     */
     static function readInputFile($source) {
         if (preg_match('#https?://#i', $source)) {
             $http = new DokuHTTPClient();
@@ -331,8 +331,8 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
     }
 
     /**
-    * computes various values on a datetime array returned by iCalcreator
-    */
+     * Computes various values on a datetime array returned by iCalcreator
+     */
     static function handleDatetime($event, $dateFormat, $timeFormat) {
         foreach (array('start', 'end') as $which) {
             $prop = $event->getProperty('dt' . $which, false, true);
@@ -391,24 +391,24 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
     }
 
     /**
-    * Determines if an iCalcreator event is an all-day event.
-    */
+     * Determines if an iCalcreator event is an all-day event.
+     */
     static function isAllDayEvent($event) {
         return !isset($event->getProperty('dtstart')['hour']);
     }
 
     /**
-    * Replaces all occurrences of $needle in $haystack by the elements of $replace.
-    * Each element of $replace is used $count times, i.e., the first $count occurrences of $needle in
-    * $haystack are replaced by $replace[0], the next $count occurrences by $replace[1], and so on.
-    * If $count is 0, then $haystack is returned without modification.
-    *
-    * @param string   $needle   substring to replace
-    * @param string[] $replace  a numerically indexed array of substitutions for $needle
-    * @param int      $count    number of $needles to be replaced by the same element of $replace
-    * @param string   $haystack string to be searched
-    * @return string  $haystack with the substitution applied
-    */
+     * Replaces all occurrences of $needle in $haystack by the elements of $replace.
+     * Each element of $replace is used $count times, i.e., the first $count occurrences of $needle in
+     * $haystack are replaced by $replace[0], the next $count occurrences by $replace[1], and so on.
+     * If $count is 0, then $haystack is returned without modification.
+     *
+     * @param string   $needle   substring to replace
+     * @param string[] $replace  a numerically indexed array of substitutions for $needle
+     * @param int      $count    number of $needles to be replaced by the same element of $replace
+     * @param string   $haystack string to be searched
+     * @return string  $haystack with the substitution applied
+     */
     static function str_replace_array($needle, $replace, $count, $haystack) {
         if ($count <= 0) {
             return $haystack;
@@ -428,28 +428,28 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
     }
 
     /**
-    * Wrapper for vevent::getProperty(), because that method does not unescape iCalendar TEXT
-    * properties correctly.
-    *
-    * @see https://github.com/iCalcreator/iCalcreator/issues/16
-    * @uses vevent::getProperty()
-    * @param vevent  $event
-    * @param string  $property
-    * @return string
-    */
+     * Wrapper for vevent::getProperty(), because that method does not unescape iCalendar TEXT
+     * properties correctly.
+     *
+     * @see https://github.com/iCalcreator/iCalcreator/issues/16
+     * @uses vevent::getProperty()
+     * @param vevent  $event
+     * @param string  $property
+     * @return string
+     */
     static function textPropertyOfEvent($event, $property) {
         return str_ireplace('\n', "\n", $event->getProperty($property));
     }
 
     /**
-    * Wrapper for vevent::getProperty().
-    * Line breaks are replaced by DokuWiki's \\ line breaks.
-    *
-    * @uses vevent::getProperty()
-    * @param vevent  $event
-    * @param string  $property
-    * @return string
-    */
+     * Wrapper for vevent::getProperty().
+     * Line breaks are replaced by DokuWiki's \\ line breaks.
+     *
+     * @uses vevent::getProperty()
+     * @param vevent  $event
+     * @param string  $property
+     * @return string
+     */
     static function textPropertyOfEventAsWiki($event, $property) {
         // First, remove existing </nowiki> end tags. (We display events that contain '</nowiki>'
         // incorrectly but this should not be a problem in practice.)
