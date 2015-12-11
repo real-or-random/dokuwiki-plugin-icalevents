@@ -143,9 +143,6 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         );
     }
 
-    /**
-     * loads the ics file via HTTP, parses it and renders an HTML table.
-     */
     function render($mode, &$renderer, $data) {
         global $ID;
         if ($mode != 'xhtml' && $mode != 'icalevents') {
@@ -157,10 +154,18 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         $to = strtotime($toString ?: '+30 days');
 
         try {
-            $content = static::readInputFile($source);
+            $content = static::readSource($source);
         } catch (Exception $e) {
             $renderer->doc .= 'Error in Plugin iCalEvents: ' . $e->getMessage();
             return false;
+        }
+
+        // SECURITY
+        // Disable caching for rendered local (media) files because
+        // a user without read permission for the local file could read
+        // the cached document
+        if (static::isLocalFile($source)) {
+            $renderer->info['cache'] = false;
         }
 
         $config = array('unique_id' => 'dokuwiki-plugin-icalevents');
@@ -311,15 +316,8 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
      * @param string $source URL or media id
      * @return string
      */
-    static function readInputFile($source) {
-        if (preg_match('#https?://#i', $source)) {
-            $http = new DokuHTTPClient();
-            if (!$http->get($source)) {
-                $error = 'could not get ' . hsc($source) . ', HTTP status ' . $http->status . '. ';
-                throw new Exception($error);
-            }
-            return $http->resp_body;
-        } else {
+    static function readSource($source) {
+        if (static::isLocalFile($source)) {
             $path = mediaFN($source);
             $contents = @file_get_contents($path);
             if ($contents === false) {
@@ -327,7 +325,23 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
                 throw new Exception($error);
             }
             return $contents;
+        } else {
+            $http = new DokuHTTPClient();
+            if (!$http->get($source)) {
+                $error = 'could not get ' . hsc($source) . ', HTTP status ' . $http->status . '. ';
+                throw new Exception($error);
+            }
+            return $http->resp_body;
         }
+    }
+
+    /**
+     * Determines whether a source is a local (media) file
+     */
+    static function isLocalFile($source) {
+        // This does not work for protocol-relative URLs
+        // but they are not supported by DokuHTTPClient anyway.
+        return !preg_match('#^https?://#i', $source);
     }
 
     /**
