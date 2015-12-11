@@ -150,8 +150,15 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         }
 
         list($source, $fromString, $toString, $maxNumberOfEntries, $showEndDates, $template, $sortDescending) = $data;
+        if ($toString) {
+            $hasRelativeRange = static::isRelativeDateTimeString($fromString)
+                 || static::isRelativeDateTimeString($toString);
+        } else {
+            $toString = $toString ?: '+30 days';
+        }
+        // TODO error handling for invalid strings
         $from = strtotime($fromString);
-        $to = strtotime($toString ?: '+30 days');
+        $to = strtotime($toString);
 
         try {
             $content = static::readSource($source);
@@ -163,8 +170,10 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         // SECURITY
         // Disable caching for rendered local (media) files because
         // a user without read permission for the local file could read
-        // the cached document
-        if (static::isLocalFile($source)) {
+        // the cached document.
+        // Also disable caching if the rendered result depends on the
+        // current time, i.e., if the time range to display is relative.
+        if (static::isLocalFile($source) || $hasRelativeRange) {
             $renderer->info['cache'] = false;
         }
 
@@ -409,6 +418,21 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
      */
     static function isAllDayEvent($event) {
         return !isset($event->getProperty('dtstart')['hour']);
+    }
+
+    /**
+     * Determines whether a string as accepted by strtotime()
+     * is relative to a base timestamp (second argument of
+     * strtotime()).
+     */
+    static function isRelativeDateTimeString($str) {
+        // $str is relative iff it yields the same timestamp
+        // now and more than one year ago.
+        // Reason: A year is the largest unit that is understood
+        // by strtotime().
+        $relNow = strtotime($str);
+        $relTwoY = strtotime($str, time() - 2 * 365 * 24 * 3600);
+        return $relNow != $relTwoY;
     }
 
     /**
