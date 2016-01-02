@@ -304,7 +304,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
             $uid = rawurldecode($_GET['uid']);
             if (!$renderer->hasSeenUID($uid)) {
                 $comp = $ical->getComponent($uid);
-                if (!$comp) {
+                if (!$comp || !$uid) {
                     http_status(404);
                     exit;
                 }
