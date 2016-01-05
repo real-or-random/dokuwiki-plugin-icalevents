@@ -89,8 +89,8 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
     }
 
     /**
-     * parse parameters from the {{iCalEvents>...}} tag.
-     * @return an array that will be passed to the renderer function
+     * Parse parameters from the {{iCalEvents>...}} tag.
+     * @return an array that will be passed to the render function
      */
     function handle($match, $state, $pos, Doku_Handler $handler) {
         // strip {{iCalEvents> or {{iCalendar from start and strip }} from end
@@ -145,9 +145,6 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
 
     function render($mode, Doku_Renderer $renderer, $data) {
         global $ID;
-        if ($mode != 'xhtml' && $mode != 'icalevents') {
-            return false;
-        }
 
         list($source, $fromString, $toString, $maxNumberOfEntries, $showEndDates, $template, $sortDescending) = $data;
         if ($toString) {
@@ -181,7 +178,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         $ical = new vcalendar($config);
         $ical->parse($content);
 
-        if ($mode == 'xhtml') {
+        if ($mode == 'xhtml' || $mode == 'metadata') {
             // If dateformat is set in plugin configuration ('dformat'), then use it.
             // Otherwise fall back to dokuwiki's default dformat from the global /conf/dokuwiki.php.
             $dateFormat = $this->getConf('dformat') ?: $conf['dformat'];
@@ -256,27 +253,29 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
                         $endString .= $end['datestring'] . ' ';
                     }
                     $endString .= $end['timestring'];
-                    // add dash only if there is end date or time
+                    // Add dash only if there is end date or time
                     $whenString = $startString . ($endString ? ' - ' : '') . $endString;
 
                     // {date}
                     $eventTemplate = str_replace('{date}', $whenString, $eventTemplate);
                     $eventTemplate .= "\n";
 
-                    // prepare summary link here
-                    $summary_link           = array();
-                    $summary_link['class']  = 'mediafile';
-                    $summary_link['style']  = 'background-image: url(lib/plugins/icalevents/ics.png);';
-                    $summary_link['pre']    = '';
-                    $summary_link['suf']    = '';
-                    $summary_link['more']   = 'rel="nofollow"';
-                    $summary_link['target'] = '';
-                    $summary_link['title']  = $summary;
-                    $uid = static::textPropertyOfEvent($event, 'uid');
-                    $summary_link['url']    = exportlink($ID, 'icalevents', array('uid' => rawurlencode($uid)));
-                    $summary_link['name']   = $summary;
+                    if ($mode == 'xhtml') {
+                        // Prepare summary link
+                        $link           = array();
+                        $link['class']  = 'mediafile';
+                        $link['style']  = 'background-image: url(lib/plugins/icalevents/ics.png);';
+                        $link['pre']    = '';
+                        $link['suf']    = '';
+                        $link['more']   = 'rel="nofollow"';
+                        $link['target'] = '';
+                        $link['title']  = $summary;
+                        $uid = static::textPropertyOfEvent($event, 'uid');
+                        $link['url']    = exportlink($ID, 'icalevents', array('uid' => rawurlencode($uid)));
+                        $link['name']   = $summary;
 
-                    $summary_links[] = $renderer->_formatLink($summary_link);
+                        $summaryLinks[] = $renderer->_formatLink($link);
+                    }
 
                     $dokuwikiOutput .= $eventTemplate;
                 }
@@ -285,38 +284,43 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
             // Wrap {summary_link} into <nowiki> to ensure that the DokuWiki renderer won't touch it.
             $dokuwikiOutput = str_replace('{summary_link}', '<nowiki>{summary_link}</nowiki>', $dokuwikiOutput);
 
-            // Pass output through the DokuWiki renderer.
-            $html = p_render($mode, p_get_instructions($dokuwikiOutput), $info);
+            // Translate DokuWiki code into instructions.
+            $instructions = p_get_instructions($dokuwikiOutput);
+            foreach ($instructions as &$ins) {
+                // Some <nowiki> tags introduced by textPropertyOfEventAsWiki() may not haven been parsed,
+                // because <nowiki> is ignored in certain syntax elements, e.g., headings.
+                // Remove these remaining <nowiki> tags.
+                foreach ($ins[1] as &$text) {
+                    $text = str_replace(array('<nowiki>', '</nowiki>'), '', $text);
+                }
+                // Execute the callback against the Renderer, i.e., render the instructions.
+                if (method_exists($renderer, $ins[0])){
+                    call_user_func_array(array(&$renderer, $ins[0]), $ins[1] ?: array());
+                }
+            }
 
-            // Some <nowiki> tags introduced by textPropertyOfEventAsWiki() may not haven been parsed,
-            // because <nowiki> is ignored in certain syntax elements, e.g., headings.
-            // Remove these remaining <nowiki> tags.
-            $html = str_replace(array('&lt;nowiki&gt;','&lt;/nowiki&gt;'), '', $html);
-
-            // Replace {summary_link}s with the entries of $summary_links and concatenate to output.
+            // Replace {summary_link}s with the entries of $summaryLinks and concatenate to output.
             // We handle it here, because it is raw HTML generated by us, not DokuWiki syntax.
             $linksPerEvent = substr_count($template, '{summary_link}');
-            $html = static::str_replace_array('{summary_link}', $summary_links, $linksPerEvent, $html);
-            $renderer->doc .= $html;
-        } else {
-            // In this case, we have $mode == 'icalevents'.
-            // That implies that $renderer is an instance of renderer_plugin_icalevents.
+            $renderer->doc = static::str_replace_array('{summary_link}', $summaryLinks, $linksPerEvent, $renderer->doc);
+            return true;
+        } elseif ($mode == 'icalevents') {
             $uid = rawurldecode($_GET['uid']);
             if (!$renderer->hasSeenUID($uid)) {
                 $comp = $ical->getComponent($uid);
                 if (!$comp || !$uid) {
                     http_status(404);
                     exit;
-                }
-                else {
+                } else {
                     // $dummy is necessary, because the argument is call-by-reference.
                     $renderer->doc .= $comp->createComponent($dummy = null);
                 }
                 $renderer->addSeenUID($uid);
             }
+            return true;
+        } else {
+            return false;
         }
-
-        return true;
     }
 
     /**
