@@ -36,6 +36,9 @@ $conf['list'] = '====== {date}: {summary} ======
 //showAs = table
 $conf['table'] = '| **{date}**  | {summary_link}  | {location_link}  | (({description}))  |';
 
+//showAs = table_without_description
+$conf['table_without_description'] = '| **{date}**  | {summary_link}  | {location_link}  |';
+
 /*
  * You can add your own showAs= templates by adding a configuration parameter
  * Example:

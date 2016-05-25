@@ -23,6 +23,7 @@ $meta['customLocationUrlPrefix'] = array('multicheckbox',
 $meta['default'] = array('');
 $meta['list'] = array('');
 $meta['table'] = array('');
+$meta['table_without_description'] = array('');
 
 /*
  * Add your own configuration for the showAs= syntax parameter
