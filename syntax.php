@@ -92,7 +92,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
      * parse parameters from the {{iCalEvents>...}} tag.
      * @return an array that will be passed to the renderer function
      */
-    function handle($match, $state, $pos, &$handler) {
+    function handle($match, $state, $pos, Doku_Handler $handler) {
         // strip {{iCalEvents> or {{iCalendar from start and strip }} from end
         $match = substr($match, strpos($match, '>') + 1, -2);
 
@@ -143,7 +143,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         );
     }
 
-    function render($mode, &$renderer, $data) {
+    function render($mode, Doku_Renderer $renderer, $data) {
         global $ID;
         if ($mode != 'xhtml' && $mode != 'icalevents') {
             return false;
