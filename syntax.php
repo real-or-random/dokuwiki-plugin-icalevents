@@ -302,6 +302,10 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
             // they contain our nonce.
             $instructions = static::str_replace_deep(array($this->nowikiStart(), $this->nowikiEnd(), $this->magicString()), '', $instructions);
 
+            // Remove document_start and document_end instructions.
+            // This avoids a reset of the TOC for example.
+            array_pop(array_shift($instructions));
+
             foreach ($instructions as &$ins) {
                 foreach ($ins[1] as &$text) {
                     $text = str_replace(array($this->nowikiStart(), $this->nowikiEnd(), $this->magicString()), '', $text);
