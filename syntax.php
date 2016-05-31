@@ -278,7 +278,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
                         $link['title']  = hsc($this->textPropertyOfEvent($event, 'summary'));
                         $uid = $this->textPropertyOfEvent($event, 'uid');
                         $link['url']    = exportlink($ID, 'icalevents', array('uid' => rawurlencode($uid)));
-                        $link['name']   = $link['title'];
+                        $link['name']   = nl2br($link['title']);
 
                         $summaryLinks[] = $renderer->_formatLink($link);
                     }
