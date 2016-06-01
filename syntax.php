@@ -184,7 +184,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         $ical = new vcalendar($config);
         $ical->parse($content);
 
-        if ($mode == 'xhtml' || $mode == 'metadata') {
+        if ($mode == 'xhtml') {
             // If dateformat is set in plugin configuration ('dformat'), then use it.
             // Otherwise fall back to dokuwiki's default dformat from the global /conf/dokuwiki.php.
             $dateFormat = $this->getConf('dformat') ?: $conf['dformat'];
