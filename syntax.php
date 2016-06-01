@@ -300,7 +300,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
             // because <nowiki> is ignored in certain syntax elements, e.g., headings.
             // Remove these remaining <nowiki> tags. We find them reliably because
             // they contain our nonce.
-            $instructions = static::str_remove_deep(array($this->nowikiStart(), $this->nowikiEnd(), $this->magicString()), $instructions);
+            static::str_remove_deep(array($this->nowikiStart(), $this->nowikiEnd(), $this->magicString()), $instructions);
 
             // Remove document_start and document_end instructions.
             // This avoids a reset of the TOC for example.
@@ -488,35 +488,16 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
     }
 
     /**
-     * Removes all occurrences of $needle in $haystack.
+     * Removes all occurrences of $needle in all strings in the array $haystack recursively.
      *
-     * If $haystack is an array, $needle is removed recursively all indices and values.
-     * This function internally uses a JSON encoding for increased performance.
-     * Special JSON characters (" ' [ ]) are not supported in $needle because they
-     * could be harmful.
-     *
-     * @param string $needle    substring or array of substrings to remove
-     * @param string $haystack string or array to searched
-     * @return false if $needle contains JSON characters, and the result of the removal otherwise
+     * @param string $needle   substring or array of substrings to remove
+     * @param array  $haystack array to searched
      */
-    static function str_remove_deep($needle, $haystack) {
-        // Abort if $needle contains JSON characters or has wrong type
-        $jsonChars = "[]'\"";
-        if (is_string($needle)) {
-            if (strpbrk($needle, $jsonChars) !== false) {
-                return false;
-            }
-        } elseif (is_array($needle)) {
-            foreach ($needle as $n) {
-                if (!is_string($n) || strpbrk($n, $jsonChars) !== false) {
-                    return false;
-                }
-            }
-        } else {
-            return false;
-        }
-        $json = json_encode($haystack, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        return json_decode(str_replace($needle, '', $json));
+    static function str_remove_deep($needle, &$haystack) {
+        array_walk_recursive($haystack,
+          function (&$h, &$k) use ($needle) {
+              $h = str_replace($needle, '', $h);
+        });
     }
 
     /**
