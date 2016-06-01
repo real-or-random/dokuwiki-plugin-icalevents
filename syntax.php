@@ -300,7 +300,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
             // because <nowiki> is ignored in certain syntax elements, e.g., headings.
             // Remove these remaining <nowiki> tags. We find them reliably because
             // they contain our nonce.
-            $instructions = static::str_replace_deep(array($this->nowikiStart(), $this->nowikiEnd(), $this->magicString()), '', $instructions);
+            $instructions = static::str_remove_deep(array($this->nowikiStart(), $this->nowikiEnd(), $this->magicString()), $instructions);
 
             // Remove document_start and document_end instructions.
             // This avoids a reset of the TOC for example.
@@ -458,6 +458,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
 
     /**
      * Replaces all occurrences of $needle in $haystack by the elements of $replace.
+     *
      * Each element of $replace is used $count times, i.e., the first $count occurrences of $needle in
      * $haystack are replaced by $replace[0], the next $count occurrences by $replace[1], and so on.
      * If $count is 0, then $haystack is returned without modification.
@@ -487,14 +488,18 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
     }
 
     /**
-     * Deep variant of str_replace for associative arrays.
+     * Removes all occurrences of $needle in $haystack.
      *
-     * Uses JSON for increased performance.
-     * Special JSON characters (" ' [ ]) are not supported because they
-     * could be harmful. TODO
-     * @return false if $needle contains JSON characters, and the result of the replacement otherwise
+     * If $haystack is an array, $needle is removed recursively all indices and values.
+     * This function internally uses a JSON encoding for increased performance.
+     * Special JSON characters (" ' [ ]) are not supported in $needle because they
+     * could be harmful.
+     *
+     * @param string $needle    substring or array of substrings to remove
+     * @param string $haystack string or array to searched
+     * @return false if $needle contains JSON characters, and the result of the removal otherwise
      */
-    static function str_replace_deep($needle, $replace, $hackstack) {
+    static function str_remove_deep($needle, $haystack) {
         // Abort if $needle contains JSON characters or has wrong type
         $jsonChars = "[]'\"";
         if (is_string($needle)) {
@@ -510,8 +515,8 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         } else {
             return false;
         }
-        $json = json_encode($hackstack, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        return json_decode(str_replace($needle, $replace, $json));
+        $json = json_encode($haystack, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        return json_decode(str_replace($needle, '', $json));
     }
 
     /**
