@@ -304,7 +304,8 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
 
             // Remove document_start and document_end instructions.
             // This avoids a reset of the TOC for example.
-            array_pop(array_shift($instructions));
+            array_shift($instructions);
+            array_pop($instructions);
 
             foreach ($instructions as &$ins) {
                 foreach ($ins[1] as &$text) {
