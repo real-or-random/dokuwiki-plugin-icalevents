@@ -185,10 +185,12 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         $ical->parse($content);
 
         if ($mode == 'xhtml') {
-            // If dateformat is set in plugin configuration ('dformat'), then use it.
-            // Otherwise fall back to dokuwiki's default dformat from the global /conf/dokuwiki.php.
-            $dateFormat = $this->getConf('dformat') ?: $conf['dformat'];
-            $timeFormat = $this->getConf('tformat') ?: $conf['tformat'];
+            // If no date/time format is set in plugin configuration ('dformat' and 'tformat'),
+            // fall back to a value based on DokuWiki's defaults.
+            // Note: We don't fall back to DokuWiki's global dformat, because it contains
+            //       date AND time, and there is no global tformat.
+            $dateFormat = $this->getConf('dformat') ?: '%Y/%m/%d';
+            $timeFormat = $this->getConf('tformat') ?: '%H:%M';
 
             $events = $ical->selectComponents(date('Y', $from), date('m', $from), date('d', $from), date('Y', $to), date('m', $to), date('d', $to), 'vevent', true);
             if ($events) {

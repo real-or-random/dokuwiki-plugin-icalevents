@@ -1,20 +1,10 @@
 <?php
 // Default configuration for iCalEvents plugin
 
-/*
- * Date format that is used to display the from and to values.
- * If you leave this empty '', then the default dformat from /conf/dokuwiki.php will be used.
- */
-$conf['dformat'] = '%d %B %Y';
-
-/*
- * Time format that is used to display the from and to values.
- * If you leave this empty '', then the default tformat from /conf/dokuwiki.php will be used.
- */
-$conf['tformat'] = '%H:%M';
-
-// should the end dates for each event be shown?
-$conf['showEndDates'] = 0;
+// Date format used to display events.
+$conf['dformat'] = '';
+// Time format used to display events.
+$conf['tformat'] = '';
 
 // URL prefix for links to information about location (e.g., a map)
 $conf['locationUrlPrefix'] = 'https://maps.google.com/maps?q=';
