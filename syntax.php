@@ -122,8 +122,8 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
             }
         }
 
-        // Get the appropriate template
-        $template = $this->getConf($showAs);
+        // Get the template
+        $template = $this->getConf('template:' . $showAs);
         if (!isset($template) || $template == '') {
             $template = $this->getConf('default');
         }
@@ -552,22 +552,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         // Some map providers don't like line break characters.
         $location = urlencode(str_replace("\n", ' ', $location));
 
-        $customConf = $this->getConf('customLocationUrlPrefix');
-        $prefix = false;
-
-        // See the comment in conf/metadata.php to understand the customLocationUrlPrefix property.
-        // DokuWiki encodes the property as comma-separated string. That is, if the string ' ' is
-        // present at the beginning or the end of the property, we interpret the rest as custom prefix.
-        if (strpos($customConf, ' ,') === 0) {
-            $prefix = substr($customConf, 2);
-        } elseif (strrpos($customConf, ', ') === strlen($customConf) - 2) {
-            $prefix = substr($customConf, 0 , -2);
-        }
-
-        if (!$prefix) {
-            $prefix = $this->getConf('locationUrlPrefix');
-        }
-
-        return $prefix ? ($prefix . $location) : false;
+        $prefix = $this->getConf('customLocationUrlPrefix') ?: $this->getConf('locationUrlPrefix');
+        return ($prefix != '') ? ($prefix . $location) : false;
     }
 }

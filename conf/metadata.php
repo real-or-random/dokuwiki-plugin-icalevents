@@ -11,31 +11,12 @@ $meta['locationUrlPrefix'] = array('multichoice',
         '',
     )
 );
+$meta['customLocationUrlPrefix'] = array('string');
 
-// We abuse a multichoice field for following property.
-// The checkbox is associated with the string ' ', and the user can additionally provide
-// a string. If the checkbox is selected, we interpret the user-provided string as a custom
-// prefix.
-$meta['customLocationUrlPrefix'] = array('multicheckbox',
-    '_choices' => array(' '),
-);
-
-$meta['default'] = array('');
-$meta['list'] = array('');
-$meta['table'] = array('');
-$meta['table_without_description'] = array('');
-
-/*
- * Add your own configuration for the showAs= syntax parameter
- *
- * Syntax:
- *   $meta['showAsLame'] = array('');
- *
- * Example:
- *   $meta['table'] = array('');
- *    will setup the configuration for showAs=table.
- *
- * You can set the default template for this parameter in default.php,
- * or set it up via the administration panel.
- */
-
+$meta['template:default'] = array('');
+$meta['template:list'] = array('');
+$meta['template:table'] = array('');
+$meta['template:table_without_description'] = array('');
+$meta['template:custom1'] = array('');
+$meta['template:custom2'] = array('');
+$meta['template:custom3'] = array('');
