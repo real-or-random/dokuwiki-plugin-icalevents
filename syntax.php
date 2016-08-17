@@ -29,7 +29,6 @@
  *
  */
 
-// must be run within Dokuwiki
 if (!defined('DOKU_INC'))
     die();
 
@@ -39,31 +38,6 @@ if (!defined('DOKU_PLUGIN'))
 require_once DOKU_PLUGIN . 'syntax.php';
 require_once DOKU_PLUGIN . 'icalevents/externals/iCalcreator/iCalcreator.php';
 
-/**
- * This plugin gets an iCalendar file via HTTP,
- * parses this file and renders it according to a template.
- *
- * Usage: {{iCalEvents>http://host/myCalendar.ics#from=today&to=+3 days}}
- *
- * You can filter the events that are shown with some parameters:
- * 1. 'from' a date from which on to show events.
- *           Can be any string that is accepted by strtotime(),
- *           e.g., "from=today".
- *           http://www.php.net/manual/en/function.strtotime.php
- *           If 'from' is omitted, then all events are shown.
- * 2. 'to'   a date until which to show events. Similar to 'from'
- *           Defaults to '+60 days'
- *           Note: The 'previewDays' parameter is deprecated.
- * 3. 'showEndDates' to show end date or not defaults to value set in plugin config
- * 4. 'showCurrentWeek' highlight events matching current week.
- *           currently assumes all-day events end at 12:00 local time, like in Google Calendar
- *
- * <code>from <= eventdate <= from+(previewDays*24*60*3600)</code>
- *
- * See also global configuration settings in plugins/iCalEvents/conf/default.php
- *
- * @see http://de.wikipedia.org/wiki/ICalendar
- */
 class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
     function __construct() {
         // Unpredictable (not in a crypto sense) nonce to recognize our own
@@ -71,7 +45,6 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         $this->nonce = mt_rand();
     }
 
-    // implement necessary Dokuwiki_Syntax_Plugin methods
     function getType() {
         return 'substition';
     }
