@@ -6,7 +6,7 @@ $meta['tformat'] = array('string');
 $meta['locationUrlPrefix'] = array('multichoice',
     '_choices' => array(
         'https://maps.google.com/maps?q=',
-        'http://open.mapquest.com/?q=',
+        'https://www.openstreetmap.com/?query=',
         'https://www.bing.com/maps/?q=',
         '',
     )
