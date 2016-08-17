@@ -2,8 +2,8 @@
 /**
  * Plugin iCalEvents: Renders an iCalendar file, e.g., as a table.
  *
- * Copyright (C) 2010-2012, 2015
- * Robert Rackl, Elan Ruusamäe, Jannes Drost-Tenfelde, Tim Ruffing
+ * Copyright (C) 2010-2012, 2015-2016
+ * Tim Ruffing, Robert Rackl, Elan Ruusamäe, Jannes Drost-Tenfelde
  *
  * This file is part of the DokuWiki iCalEvents plugin.
  *
@@ -22,11 +22,10 @@
  * not, see <http://www.gnu.org/licenses/gpl-2.0.html>.
  *
  * @license    https://www.gnu.org/licenses/gpl-2.0.html GPL2
- * @version    3.0.0
+ * @author     Tim Ruffing <tim@timruffing.de>
  * @author     Robert Rackl <wiki@doogie.de>
  * @author     Elan Ruusamäe <glen@delfi.ee>
  * @author     Jannes Drost-Tenfelde <info@drost-tenfelde.de>
- * @author     Tim Ruffing <tim@timruffing.de>
  *
  */
 

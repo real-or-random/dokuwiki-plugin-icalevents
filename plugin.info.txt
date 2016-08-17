@@ -1,7 +1,7 @@
 base   icalevents
-author Robert Rackl, Elan Ruusamäe, Jannes Drost-Tenfelde, Tim Ruffing
+author Tim Ruffing, Robert Rackl, Elan Ruusamäe, Jannes Drost-Tenfelde
 email  tim@timruffing.de
-date   2012-09-09
+date   2016-08-17
 name   iCalEvents
-desc   Renders an iCalendar file, e.g., as a table.
+desc   Displays a calendar in iCalendar format according to a template
 url    http://www.dokuwiki.org/plugin:icalevents
