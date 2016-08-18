@@ -75,6 +75,15 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         $match = substr($match, strpos($match, '>') + 1, -2);
 
         list($source, $flagStr) = explode('#', $match, 2);
+
+        // parse_str urldecodes valid percent-encoded byte, e.g., %dd.
+        // This is problematic, because the tformat and dformat parameters
+        // are intended to be parsed by strftime(), for which % is a
+        // special char. That is, a string %dd would not be interpreted
+        // as %d followed by a literal d.
+        // We ignore that problem, because it does not seem likely to hit
+        // a valid percecent encoding (% followed by two hex digits) in
+        // practice. In that case, % must be encoded as %25.
         parse_str($flagStr, $params);
 
         // maxNumberOfEntries was called numberOfEntries earlier.
@@ -117,14 +126,27 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
             $maxNumberOfEntries,
             $showEndDates,
             $template,
-            $sortDescending
+            $sortDescending,
+            hsc($params['dformat']),
+            hsc($params['tformat'])
         );
     }
 
     function render($mode, Doku_Renderer $renderer, $data) {
         global $ID;
 
-        list($source, $fromString, $toString, $maxNumberOfEntries, $showEndDates, $template, $sortDescending) = $data;
+        list(
+            $source,
+            $fromString,
+            $toString,
+            $maxNumberOfEntries,
+            $showEndDates,
+            $template,
+            $sortDescending,
+            $dformat,
+            $tformat
+          ) = $data;
+
         if ($toString) {
             $hasRelativeRange = static::isRelativeDateTimeString($fromString)
                  || static::isRelativeDateTimeString($toString);
@@ -157,12 +179,13 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         $ical->parse($content);
 
         if ($mode == 'xhtml') {
-            // If no date/time format is set in plugin configuration ('dformat' and 'tformat'),
-            // fall back to a value based on DokuWiki's defaults.
+            // If no date/time format is requested, fall back to plugin
+            // configuration ('dformat' and 'tformat'), and then to a
+            // a value based on DokuWiki's defaults.
             // Note: We don't fall back to DokuWiki's global dformat, because it contains
             //       date AND time, and there is no global tformat.
-            $dateFormat = $this->getConf('dformat') ?: '%Y/%m/%d';
-            $timeFormat = $this->getConf('tformat') ?: '%H:%M';
+            $dateFormat = $dformat ?: $this->getConf('dformat') ?: '%Y/%m/%d';
+            $timeFormat = $tformat ?: $this->getConf('tformat') ?: '%H:%M';
 
             $events = $ical->selectComponents(date('Y', $from), date('m', $from), date('d', $from), date('Y', $to), date('m', $to), date('d', $to), 'vevent', true);
             if ($events) {
