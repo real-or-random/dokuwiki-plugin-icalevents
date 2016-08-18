@@ -169,7 +169,8 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
                 // compute timestamps etc. using handleDatetime, and add result to array
                 $events = array_map(
                     function($comp) use ($dateFormat, $timeFormat) {
-                        return array('event' => $comp, 'datetime' => static::handleDatetime($comp, $dateFormat, $timeFormat));
+                        // using self:: is more approriate here but requires PHP >= 5.4
+                        return array('event' => $comp, 'datetime' => syntax_plugin_icalevents::handleDatetime($comp, $dateFormat, $timeFormat));
                     }, $events
                 );
 
