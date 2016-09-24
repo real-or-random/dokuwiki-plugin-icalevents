@@ -390,26 +390,21 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
 
             $dto = null;
             try {
-                if (iCalUtilityFunctions::_isOffset($tz)) {
-                    $dto = new DateTime($full, new DateTimeZone('UTC'));
-                    $dto->modify('+' . iCalUtilityFunctions::_tz2offset($tz) . ' seconds');
+                $local = false;
+                if ($tz == '') {
+                    // floating event
+                    $local = true;
                 } else {
-                    $local = false;
-                    if ($tz == '') {
-                        // floating event
+                    try {
+                        $dtz = new DateTimeZone($tz);
+                        $dto = new DateTime($full, $dtz);
+                    } catch (Exception $eTz) {
+                        // invalid timezone, fall back to local timezone.
                         $local = true;
-                    } else {
-                        try {
-                            $dtz = new DateTimeZone($tz);
-                            $dto = new DateTime($full, $dtz);
-                        } catch (Exception $eTz) {
-                            // invalid timezone, fall back to local timezone.
-                            $local = true;
-                        }
                     }
-                    if ($local) {
-                        $dto = new DateTime($full);
-                    }
+                }
+                if ($local) {
+                    $dto = new DateTime($full);
                 }
                 $dt['timestamp'] = $dto->getTimestamp();
             } catch (Exception $eDate) {
