@@ -380,32 +380,32 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         foreach (array('start', 'end') as $which) {
             $prop = $event->getProperty('dt' . $which, false, true);
             $datetime = $prop['value'];
-            $tz = $prop['params']['TZID'];
+
+            // iCalcreator indicates UTC and local times (for floating events)
+            // in a weird manner.
+            // See iCalUtilityFunctions::_setDate() around the end.
+            $tzid = $prop['value']['tz'] == 'Z' ? 'UTC' : $prop['params']['TZID'];
+            $local = ($tzid === null);
+
             $dt = &$res[$which];
 
             $dt['date'] = sprintf(iCalUtilityFunctions::$fmt['Ymd'], $datetime['year'], $datetime['month'], $datetime['day']);
             $dt['time'] = sprintf(iCalUtilityFunctions::$fmt['His'], $datetime['hour'], $datetime['min'], $datetime['sec']);
-
             $full = $dt['date'] . 'T' . $dt['time'];
 
-            $dto = null;
+            if ($local) {
+                $dtz = null;
+            } else {
+                try {
+                    $dtz = new DateTimeZone($tzid);
+                } catch (Exception $eTz) {
+                    // invalid time zone, fall back to local time
+                    $dtz = null;
+                }
+            }
+
             try {
-                $local = false;
-                if ($tz == '') {
-                    // floating event
-                    $local = true;
-                } else {
-                    try {
-                        $dtz = new DateTimeZone($tz);
-                        $dto = new DateTime($full, $dtz);
-                    } catch (Exception $eTz) {
-                        // invalid timezone, fall back to local timezone.
-                        $local = true;
-                    }
-                }
-                if ($local) {
-                    $dto = new DateTime($full);
-                }
+                $dto = new DateTime($full, $dtz);
                 $dt['timestamp'] = $dto->getTimestamp();
             } catch (Exception $eDate) {
                 // invalid date or time
