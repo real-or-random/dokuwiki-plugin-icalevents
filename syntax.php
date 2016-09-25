@@ -68,7 +68,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
 
     /**
      * Parse parameters from the {{iCalEvents>...}} tag.
-     * @return an array that will be passed to the render function
+     * @return array an array that will be passed to the render function
      */
     function handle($match, $state, $pos, Doku_Handler $handler) {
         // strip {{iCalEvents> or {{iCalendar from start and strip }} from end
