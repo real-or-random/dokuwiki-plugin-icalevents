@@ -1,13 +1,34 @@
 # Config file for travis-ci.org
 
 language: php
+
 php:
+  - "7.0"
   - "5.5"
   - "5.4"
   - "5.3"
+
 env:
   - DOKUWIKI=master
   - DOKUWIKI=stable
+
 before_install: wget https://raw.github.com/splitbrain/dokuwiki-travis/master/travis.sh
+
 install: sh travis.sh
-script: cd _test && phpunit --stderr --group plugin_icalevents
+
+before_script:
+  - pyrus install pear/PHP_CodeSniffer
+  - git clone -b master https://github.com/wimg/PHPCompatibility.git /tmp/PHPCompatibility
+    # Checkout latest tag
+  - cd /tmp/PHPCompatibility
+  - git checkout $(git describe --tags `git rev-list --tags --max-count=1`)
+  - cd -
+  - phpcs --config-set installed_paths /tmp/PHPCompability
+  - phpenv rehash
+    # A time zone without daylight saving time for simplified testing (UTC+09:00)
+  - echo 'date.timezone = "Asia/Tokyo"' >> ~/.phpenv/versions/$(phpenv version-name)/etc/conf.d/travis.ini
+
+script:
+  - cd _test && phpunit --stderr --group plugin_icalevents && cd ..
+  - phpcs --standard=PHPCompatibility --runtime-set testVersion 5.3-7.0 --report=summary --ignore=_test/ -v .
+
