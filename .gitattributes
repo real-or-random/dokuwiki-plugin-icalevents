@@ -1,0 +1,6 @@
+.git* export-ignore
+
+ # "/*" is necessary for git-archive-all
+_test export-ignore
+_test/* export-ignore
+.travis.yml export-ignore
