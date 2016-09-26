@@ -17,13 +17,14 @@ before_install: wget https://raw.github.com/splitbrain/dokuwiki-travis/master/tr
 install: sh travis.sh
 
 before_script:
-  - pyrus install pear/PHP_CodeSniffer
+  - wget https://github.com/squizlabs/PHP_CodeSniffer/releases/download/2.7.0/phpcs.phar
+  - chmod +x phpcs.phar
   - git clone -b master https://github.com/wimg/PHPCompatibility.git /tmp/PHPCompatibility
     # Checkout latest tag
   - cd /tmp/PHPCompatibility
   - git checkout $(git describe --tags `git rev-list --tags --max-count=1`)
   - cd -
-  - phpcs --config-set installed_paths /tmp/PHPCompability
+  - ./phpcs.phar --config-set installed_paths /tmp/PHPCompability
   - phpenv rehash
     # A time zone without daylight saving time for simplified testing (UTC+09:00)
   - echo 'date.timezone = "Asia/Tokyo"' >> ~/.phpenv/versions/$(phpenv version-name)/etc/conf.d/travis.ini
@@ -32,3 +33,4 @@ script:
   - cd _test && phpunit --stderr --group plugin_icalevents && cd ..
   - phpcs --standard=PHPCompatibility --runtime-set testVersion 5.3-7.0 --report=summary --ignore=_test/ -v .
 
+# vim:ts=2:sw=2:et
