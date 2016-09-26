@@ -432,7 +432,8 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
      * Determines if an iCalcreator event is an all-day event.
      */
     static function isAllDayEvent($event) {
-        return !isset($event->getProperty('dtstart')['hour']);
+        $dtstart = $event->getProperty('dtstart');
+        return !isset($dtstart['hour']);
     }
 
     /**
