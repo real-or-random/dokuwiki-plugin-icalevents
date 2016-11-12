@@ -348,18 +348,15 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
     }
 
     /**
-     * Computes various values on a datetime array returned by iCalcreator
+     * Computes date and time string of an event returned by vobject/sabre
      */
     static function handleDatetime($event, $dateFormat, $timeFormat) {
         foreach (array('start', 'end') as $which) {
             $dtSabre = $event->{'DT' . strtoupper($which)};
-            // FIXME time zone handling for all day events
-            $dtImmutable = $dtSabre->getDateTime();
+            $dtImmutable = $dtSabre->getDateTime(new DateTimeZone(date_default_timezone_get()));
             $dt = &$res[$which];
-            // from the iCalcreator docs:
-            //  "Notice that an end date without a time is in effect midnight of the day before the date, so for timeless dates,
-            //  use the date following the event date for it to be correct."
-            // So we correct the end date in this case.
+            // Correct end date for all-day events, which formally end
+            // on 00:00 of the following day.
             if (!$dtSabre->hasTime() && $which == 'end') {
                 $dtImmutable = $dtImmutable->modify('-1 day');
             }
