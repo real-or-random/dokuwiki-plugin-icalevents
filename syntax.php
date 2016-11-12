@@ -35,8 +35,9 @@ if (!defined('DOKU_INC'))
 if (!defined('DOKU_PLUGIN'))
     define('DOKU_PLUGIN', DOKU_INC . 'lib/plugins/');
 
-require_once DOKU_PLUGIN . 'syntax.php';
-require_once DOKU_PLUGIN . 'icalevents/externals/iCalcreator/iCalcreator.php';
+use Sabre\VObject;
+
+require_once DOKU_PLUGIN . 'icalevents/vendor/autoload.php';
 
 class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
     function __construct() {
@@ -154,8 +155,8 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
             $toString = $toString ?: '+30 days';
         }
         // TODO error handling for invalid strings
-        $from = strtotime($fromString);
-        $to = strtotime($toString);
+        $from = new DateTime($fromString);
+        $to = new DateTime($toString);
 
         try {
             $content = static::readSource($source);
@@ -174,9 +175,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
             $renderer->info['cache'] = false;
         }
 
-        $config = array('unique_id' => 'dokuwiki-plugin-icalevents');
-        $ical = new vcalendar($config);
-        $ical->parse($content);
+        $ical = VObject\Reader::read($content);
 
         if ($mode == 'xhtml') {
             // If no date/time format is requested, fall back to plugin
@@ -187,52 +186,28 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
             $dateFormat = $dformat ?: $this->getConf('dformat') ?: '%Y/%m/%d';
             $timeFormat = $tformat ?: $this->getConf('tformat') ?: '%H:%M';
 
-            $events = $ical->selectComponents(date('Y', $from), date('m', $from), date('d', $from), date('Y', $to), date('m', $to), date('d', $to), 'vevent', true);
+            $events = $ical->expand($from, $to)->VEVENT;
+
             if ($events) {
-                // compute timestamps etc. using handleDatetime, and add result to array
-                $events = array_map(
-                    function($comp) use ($dateFormat, $timeFormat) {
-                        // using self:: is more approriate here but requires PHP >= 5.4
-                        return array('event' => $comp, 'datetime' => syntax_plugin_icalevents::handleDatetime($comp, $dateFormat, $timeFormat));
-                    }, $events
-                );
-
-                // filter invalid events
-                $events = array_filter($events,
-                    function($comp) {
-                        return $comp['datetime'] !== false;
-                    }
-                );
-
-                // sort events
-                uasort($events,
-                    function($a, $b) use ($sortDescending) {
-                        return ($sortDescending ? -1 : 1) * ($a['datetime']['start']['timestamp'] - $b['datetime']['start']['timestamp']);
-                    }
-                );
-
                 if ($maxNumberOfEntries >= 0) {
                     $events = array_slice($events, 0, $maxNumberOfEntries);
                 }
 
                 $dokuwikiOutput = '';
                 // loop over events and render template for each one
-                foreach ($events as &$entry) {
-                    $event = &$entry['event'];
-                    $datetime = &$entry['datetime'];
-
+                foreach ($events as &$event) {
                     // Get a copy of the template for the events
                     $eventTemplate = $template;
 
                     // {description}
-                    $eventTemplate = str_replace('{description}', $this->textPropertyOfEventAsWiki($event, 'description'), $eventTemplate);
+                    $eventTemplate = str_replace('{description}', $this->textPropertyOfEventAsWiki($event, 'DESCRIPTION'), $eventTemplate);
 
                     // {summary}
-                    $summary = $this->textPropertyOfEventAsWiki($event, 'summary');
+                    $summary = $this->textPropertyOfEventAsWiki($event, 'SUMMARY');
                     $eventTemplate = str_replace('{summary}', $summary, $eventTemplate);
 
                     // See if a location was set
-                    $location = $this->textPropertyOfEvent($event, 'location');
+                    $location = $event->LOCATION;
                     if ($location != '') {
                         // {location}
                         $eventTemplate = str_replace('{location}', $location, $eventTemplate);
@@ -248,15 +223,14 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
                         $eventTemplate = str_replace('{location_link}', 'Unknown', $eventTemplate);
                     }
 
-                    $start = &$datetime['start'];
-                    $end   = &$datetime['end'];
+                    $dt = static::handleDatetime($event, $dateFormat, $timeFormat);
 
-                    $startString = $start['datestring'] . ' ' . $start['timestring'];
+                    $startString = $dt['start']['datestring'] . ' ' . $dt['start']['timestring'];
                     $endString = '';
-                    if ($end['date'] != $start['date'] || $showEndDates) {
-                        $endString .= $end['datestring'] . ' ';
+                    if ($dt['end']['datestring'] != $dt['start']['datestring'] || $showEndDates) {
+                        $endString .= $dt['end']['datestring'] . ' ';
                     }
-                    $endString .= $end['timestring'];
+                    $endString .= $dt['end']['timestring'];
                     // Add dash only if there is end date or time
                     $whenString = $startString . ($endString ? ' - ' : '') . $endString;
 
@@ -273,8 +247,8 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
                         $link['suf']    = '';
                         $link['more']   = 'rel="nofollow"';
                         $link['target'] = '';
-                        $link['title']  = hsc($this->textPropertyOfEvent($event, 'summary'));
-                        $uid = $this->textPropertyOfEvent($event, 'uid');
+                        $link['title']  = hsc($event->SUMMARY);
+                        $uid = $event->UID;
                         $link['url']    = exportlink($ID, 'icalevents', array('uid' => rawurlencode($uid)));
                         $link['name']   = nl2br($link['title']);
 
@@ -378,62 +352,21 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
      */
     static function handleDatetime($event, $dateFormat, $timeFormat) {
         foreach (array('start', 'end') as $which) {
-            $prop = $event->getProperty('dt' . $which, false, true);
-            $datetime = $prop['value'];
-
-            // iCalcreator indicates UTC and local times (for floating events)
-            // in a weird manner.
-            // See iCalUtilityFunctions::_setDate() around the end.
-            $tzid = $prop['value']['tz'] == 'Z' ? 'UTC' : $prop['params']['TZID'];
-            $local = ($tzid === null);
-
+            $dtSabre = $event->{'DT' . strtoupper($which)};
+            // FIXME time zone handling for all day events
+            $dtImmutable = $dtSabre->getDateTime();
             $dt = &$res[$which];
-
-            $dt['date'] = sprintf(iCalUtilityFunctions::$fmt['Ymd'], $datetime['year'], $datetime['month'], $datetime['day']);
-            $dt['time'] = sprintf(iCalUtilityFunctions::$fmt['His'], $datetime['hour'], $datetime['min'], $datetime['sec']);
-            $full = $dt['date'] . 'T' . $dt['time'];
-
-            if ($local) {
-                $dtz = null;
-            } else {
-                try {
-                    $dtz = new DateTimeZone($tzid);
-                } catch (Exception $eTz) {
-                    // invalid time zone, fall back to local time
-                    $dtz = null;
-                }
-            }
-
-            try {
-                $dto = new DateTime($full, $dtz);
-                $dt['timestamp'] = $dto->getTimestamp();
-            } catch (Exception $eDate) {
-                // invalid date or time
-                $dt['timestamp'] = '';
-                $dt['datestring'] = '';
-                $dt['timestring'] = '';
-                continue;
-            }
-
             // from the iCalcreator docs:
             //  "Notice that an end date without a time is in effect midnight of the day before the date, so for timeless dates,
             //  use the date following the event date for it to be correct."
             // So we correct the end date in this case.
-            if (static::isAllDayEvent($event) && $which == 'end') {
-                $dto->modify('-1 day');
+            if (!$dtSabre->hasTime() && $which == 'end') {
+                $dtImmutable = $dtImmutable->modify('-1 day');
             }
-            $dt['datestring'] = strftime($dateFormat, $dto->getTimestamp());
-            $dt['timestring'] = !static::isAllDayEvent($event) ?  strftime($timeFormat, $dto->getTimestamp()) : '';
+            $dt['datestring'] = strftime($dateFormat, $dtImmutable->getTimestamp());
+            $dt['timestring'] = $dtSabre->hasTime() ? strftime($timeFormat, $dtImmutable->getTimestamp()) : '';
         }
         return $res;
-    }
-
-    /**
-     * Determines if an iCalcreator event is an all-day event.
-     */
-    static function isAllDayEvent($event) {
-        $dtstart = $event->getProperty('dtstart');
-        return !isset($dtstart['hour']);
     }
 
     /**
@@ -496,20 +429,6 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
     }
 
     /**
-     * Wrapper for vevent::getProperty(), because that method does not unescape iCalendar TEXT
-     * properties correctly.
-     *
-     * @see https://github.com/iCalcreator/iCalcreator/issues/16
-     * @uses vevent::getProperty()
-     * @param vevent  $event
-     * @param string  $property
-     * @return string
-     */
-    function textPropertyOfEvent($event, $property) {
-        return str_ireplace('\n', "\n", $event->getProperty($property));
-    }
-
-    /**
      * Wrapper for vevent::getProperty().
      * Line breaks are replaced by DokuWiki's \\ line breaks.
      *
@@ -522,9 +441,9 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         // First, remove existing </nowiki> end tags. (We display events that contain '</nowiki>'
         // incorrectly but this should not be a problem in practice.)
         // Second, replace line breaks by DokuWiki line breaks.
-        $needle   = array('</nowiki>', '\n');
+        $needle   = array('</nowiki>', "\n");
         $haystack = array('',          $this->nowikiEnd() . '\\\\ '. $this->nowikiStart());
-        $propString = str_ireplace($needle, $haystack, $event->getProperty($property));
+        $propString = str_ireplace($needle, $haystack, $event->$property);
         return $this->nowikiStart() . $propString . $this->nowikiEnd();
     }
 
