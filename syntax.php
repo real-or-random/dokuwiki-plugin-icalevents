@@ -259,7 +259,11 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
                         $summaryLinks[] = $renderer->_formatLink($link);
                     }
 
-                    $dokuwikiOutput .= $eventTemplate;
+                    if ($sortDescending) {
+                        $dokuwikiOutput = $eventTemplate . $dokuwikiOutput;
+                    } else {
+                        $dokuwikiOutput = $dokuwikiOutput . $eventTemplate;
+                    }
                 }
             }
 
