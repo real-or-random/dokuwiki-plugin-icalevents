@@ -250,8 +250,11 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
                         $link['more']   = 'rel="nofollow"';
                         $link['target'] = '';
                         $link['title']  = hsc($event->SUMMARY);
-                        $uid = $event->UID;
-                        $link['url']    = exportlink($ID, 'icalevents', array('uid' => rawurlencode($uid)));
+                        $getParams = array(
+                            'uid' => rawurlencode($event->UID),
+                            'recurrence-id' => rawurlencode($event->{'RECURRENCE-ID'})
+                        );
+                        $link['url']    = exportlink($ID, 'icalevents', $getParams);
                         $link['name']   = nl2br($link['title']);
 
                         $summaryLinks[] = $renderer->_formatLink($link);
@@ -300,8 +303,13 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         // Export mode
         } elseif ($mode == 'icalevents') {
             $uid = rawurldecode($_GET['uid']);
+            $recurrenceId = rawurldecode($_GET['recurrence-id']);
             if (!$renderer->hasSeenUid($uid)) {
-                $comp = array_shift($ical->getByUid($uid));
+                $comp = array_shift(array_filter($ical->getByUid($uid),
+                    function($event) use ($recurrenceId) {
+                        return ((string) $event->{'RECURRENCE-ID'}) === $recurrenceId;
+                    }
+                ));
                 if (!$comp || !$uid) {
                     http_status(404);
                     exit;
