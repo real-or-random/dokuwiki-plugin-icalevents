@@ -34,10 +34,11 @@ if (!defined('DOKU_INC'))
     die();
 
 require_once DOKU_INC . 'inc/parser/renderer.php';
+require_once __DIR__ . '/vendor/autoload.php';
 
 // This is a minimal renderer plugin. It ignores everything except
 // invocations of our syntax plugin component. These invocations are
-// handled to outputVEVENTs.
+// handled to output VEVENTs.
 
 class renderer_plugin_icalevents extends Doku_Renderer {
     public $info = array(
@@ -49,7 +50,7 @@ class renderer_plugin_icalevents extends Doku_Renderer {
 
     // Already output UIDs.
     // This is necessary to avoid duplicate VEVENTs in the output.
-    private $seenUIDs = array();
+    private $seenUids = array();
 
     function getFormat() {
         return 'icalevents';
@@ -81,16 +82,16 @@ class renderer_plugin_icalevents extends Doku_Renderer {
         $this->doc .= "END:VCALENDAR\r\n";
     }
 
-    function hasSeenUID($uid) {
-        return in_array($uid, $this->seenUIDs);
+    function hasSeenUid($uid) {
+        return in_array($uid, $this->seenUids);
     }
 
-    function addSeenUID($uid) {
-        $this->seenUIDs[] = $uid;
+    function addSeenUid($uid) {
+        $this->seenUids[] = $uid;
     }
 
     function reset() {
-        $this->seenUIDs = array();
+        $this->seenUids = array();
     }
 
     // Instantiating the class several times is not necessary,
