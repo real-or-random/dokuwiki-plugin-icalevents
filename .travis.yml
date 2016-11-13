@@ -5,8 +5,6 @@ language: php
 php:
   - "7.0"
   - "5.5"
-  - "5.4"
-  - "5.3"
 
 env:
   - DOKUWIKI=master
@@ -35,4 +33,4 @@ before_script:
 
 script:
   - cd _test && phpunit --stderr --group plugin_icalevents && cd ..
-  - cd lib/plugins/icalevents && /tmp/phpcs.phar --standard=PHPCompatibility --runtime-set testVersion 5.3-7.0 --ignore=_test/ . && cd ..
+  - cd lib/plugins/icalevents && /tmp/phpcs.phar --standard=PHPCompatibility --runtime-set testVersion 5.5-7.0 --ignore=_test/ . && cd ..
