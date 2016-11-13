@@ -37,7 +37,8 @@ if (!defined('DOKU_PLUGIN'))
 
 use Sabre\VObject;
 
-require_once DOKU_PLUGIN . 'icalevents/vendor/autoload.php';
+require_once DOKU_PLUGIN . 'syntax.php';
+require_once __DIR__ . '/vendor/autoload.php';
 
 class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
     function __construct() {
@@ -201,10 +202,10 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
                     $eventTemplate = $template;
 
                     // {description}
-                    $eventTemplate = str_replace('{description}', $this->textPropertyOfEventAsWiki($event, 'DESCRIPTION'), $eventTemplate);
+                    $eventTemplate = str_replace('{description}', $this->textAsWiki($event->DESCRIPTION), $eventTemplate);
 
                     // {summary}
-                    $summary = $this->textPropertyOfEventAsWiki($event, 'SUMMARY');
+                    $summary = $this->textAsWiki($event->SUMMARY);
                     $eventTemplate = str_replace('{summary}', $summary, $eventTemplate);
 
                     // See if a location was set
@@ -427,22 +428,20 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
     }
 
     /**
-     * Wrapper for vevent::getProperty().
-     * Line breaks are replaced by DokuWiki's \\ line breaks.
+     * Replaces line breaks by DokuWiki's \\ line breaks and inserts
+     * <nowiki> tags.
      *
-     * @uses vevent::getProperty()
-     * @param vevent  $event
-     * @param string  $property
+     * @param string $text
      * @return string
      */
-    function textPropertyOfEventAsWiki($event, $property) {
+    function textAsWiki($text) {
         // First, remove existing </nowiki> end tags. (We display events that contain '</nowiki>'
         // incorrectly but this should not be a problem in practice.)
         // Second, replace line breaks by DokuWiki line breaks.
         $needle   = array('</nowiki>', "\n");
         $haystack = array('',          $this->nowikiEnd() . '\\\\ '. $this->nowikiStart());
-        $propString = str_ireplace($needle, $haystack, $event->$property);
-        return $this->nowikiStart() . $propString . $this->nowikiEnd();
+        $text = str_ireplace($needle, $haystack, $text);
+        return $this->nowikiStart() . $text . $this->nowikiEnd();
     }
 
     function magicString() {
