@@ -44,6 +44,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         // Unpredictable (not in a crypto sense) nonce to recognize our own
         // strings, e.g., <nowiki> tags that we have inserted
         $this->nonce = mt_rand();
+        $this->localTimezone = new DateTimeZone(date_default_timezone_get());
     }
 
     function getType() {
@@ -223,7 +224,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
                         $eventTemplate = str_replace('{location_link}', 'Unknown', $eventTemplate);
                     }
 
-                    $dt = static::handleDatetime($event, $dateFormat, $timeFormat);
+                    $dt = $this->handleDatetime($event, $dateFormat, $timeFormat);
 
                     $startString = $dt['start']['datestring'] . ' ' . $dt['start']['timestring'];
                     $endString = '';
@@ -350,10 +351,10 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
     /**
      * Computes date and time string of an event returned by vobject/sabre
      */
-    static function handleDatetime($event, $dateFormat, $timeFormat) {
+    function handleDatetime($event, $dateFormat, $timeFormat) {
         foreach (array('start', 'end') as $which) {
             $dtSabre = $event->{'DT' . strtoupper($which)};
-            $dtImmutable = $dtSabre->getDateTime(new DateTimeZone(date_default_timezone_get()));
+            $dtImmutable = $dtSabre->getDateTime($this->localTimezone);
             $dt = &$res[$which];
             // Correct end date for all-day events, which formally end
             // on 00:00 of the following day.
