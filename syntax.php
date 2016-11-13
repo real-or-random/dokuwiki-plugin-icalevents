@@ -41,6 +41,8 @@ require_once DOKU_PLUGIN . 'syntax.php';
 require_once __DIR__ . '/vendor/autoload.php';
 
 class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
+    const ERROR_PREFIX = '<br/ >Error in Plugin iCalEvents: ';
+
     function __construct() {
         // Unpredictable (not in a crypto sense) nonce to recognize our own
         // strings, e.g., <nowiki> tags that we have inserted
@@ -163,7 +165,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         try {
             $content = static::readSource($source);
         } catch (Exception $e) {
-            $renderer->doc .= 'Error in Plugin iCalEvents: ' . $e->getMessage();
+            $renderer->doc .= static::ERROR_PREFIX  . $e->getMessage() . ' ';
             return false;
         }
 
@@ -177,7 +179,12 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
             $renderer->info['cache'] = false;
         }
 
-        $ical = VObject\Reader::read($content, VObject\Reader::OPTION_FORGIVING);
+        try {
+            $ical = VObject\Reader::read($content, VObject\Reader::OPTION_FORGIVING);
+        } catch (Exception $e) {
+            $renderer->doc .= static::ERROR_PREFIX . 'invalid iCalendar input. ';
+            return false;
+        }
 
         if ($mode == 'xhtml') {
             // If no date/time format is requested, fall back to plugin
@@ -188,7 +195,13 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
             $dateFormat = $dformat ?: $this->getConf('dformat') ?: '%Y/%m/%d';
             $timeFormat = $tformat ?: $this->getConf('tformat') ?: '%H:%M';
 
-            $events = $ical->expand($from, $to)->VEVENT;
+            try {
+                $events = $ical->expand($from, $to)->VEVENT;
+            } catch (Exception $e) {
+                $renderer->doc .= static::ERROR_PREFIX . 'unable to expand recurrent events. ';
+                return false;
+            }
+
             if ($events) {
                 if ($maxNumberOfEntries >= 0) {
                     $events = array_slice($events, 0, $maxNumberOfEntries);
@@ -311,8 +324,13 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
             // Make sure the sub-event is in the expanded calendar.
             // Also, there is no need to expand more.
             if ($dtRecurrence = DateTimeImmutable::createFromFormat('Ymd', $recurrenceId)) {
-                // +/- 1 day to avoid time zone weirdness
-                $ical = $ical->expand($dtRecurrence->modify('-1 day'), $dtRecurrence->modify('+1 day'));
+                try {
+                    // +/- 1 day to avoid time zone weirdness
+                    $ical = $ical->expand($dtRecurrence->modify('-1 day'), $dtRecurrence->modify('+1 day'));
+                } catch (Exception $e) {
+                    $renderer->doc .= static::ERROR_PREFIX . 'Unable to expand recurrent events for export.';
+                    return false;
+                }
             }
 
             if (!$renderer->hasSeenUid($uid)) {
