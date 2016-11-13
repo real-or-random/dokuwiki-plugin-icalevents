@@ -178,7 +178,6 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         }
 
         $ical = VObject\Reader::read($content, VObject\Reader::OPTION_FORGIVING);
-        $ical = $ical->expand($from, $to);
 
         if ($mode == 'xhtml') {
             // If no date/time format is requested, fall back to plugin
@@ -189,7 +188,7 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
             $dateFormat = $dformat ?: $this->getConf('dformat') ?: '%Y/%m/%d';
             $timeFormat = $tformat ?: $this->getConf('tformat') ?: '%H:%M';
 
-            $events = $ical->VEVENT;
+            $events = $ical->expand($from, $to)->VEVENT;
             if ($events) {
                 if ($maxNumberOfEntries >= 0) {
                     $events = array_slice($events, 0, $maxNumberOfEntries);
@@ -304,6 +303,14 @@ class syntax_plugin_icalevents extends DokuWiki_Syntax_Plugin {
         } elseif ($mode == 'icalevents') {
             $uid = rawurldecode($_GET['uid']);
             $recurrenceId = rawurldecode($_GET['recurrence-id']);
+
+            // Make sure the sub-event is in the expanded calendar.
+            // Also, there is no need to expand more.
+            if ($dtRecurrence = DateTimeImmutable::createFromFormat('Ymd', $recurrenceId)) {
+                // +/- 1 day to avoid time zone weirdness
+                $ical = $ical->expand($dtRecurrence->modify('-1 day'), $dtRecurrence->modify('+1 day'));
+            }
+
             if (!$renderer->hasSeenUid($uid)) {
                 $comp = array_shift(array_filter($ical->getByUid($uid),
                     function($event) use ($recurrenceId) {
