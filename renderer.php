@@ -29,6 +29,10 @@
  *
  */
 
+// We require at least PHP 5.5.
+if (version_compare(PHP_VERSION, '5.5.0') < 0)
+    return;
+
 // must be run within Dokuwiki
 if (!defined('DOKU_INC'))
     die();
