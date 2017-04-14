@@ -4,18 +4,15 @@ language: php
 
 php:
   - "7.0"
-  - "5.5"
+# As there are no functionality tests and we basically run only PHP_CodeSniffer,
+# one run (with one version) suffices.
+#  - "5.5"
+#  - "5.4"
+#  - "5.3"
 
 env:
   - DOKUWIKI=master
-  - DOKUWIKI=stable
-
-# Exclude broken test
-matrix:
-  exclude:
-    - php: "7.0"
-      env: DOKUWIKI=stable
-
+#  - DOKUWIKI=stable
 
 before_install: wget https://raw.github.com/splitbrain/dokuwiki-travis/master/travis.sh
 
@@ -40,4 +37,5 @@ before_script:
 
 script:
   - cd _test && phpunit --stderr --group plugin_icalevents && cd ..
-  - cd lib/plugins/icalevents && /tmp/phpcs.phar --standard=PHPCompatibility --runtime-set testVersion 5.5-7.0 --ignore=_test/ . && cd ..
+  - cd lib/plugins/icalevents && /tmp/phpcs.phar --standard=PHPCompatibility --runtime-set testVersion 5.5-7.0 --ignore=_test/ . && cd ../../..
+  - cd lib/plugins/icalevents && /tmp/phpcs.phar --standard=PHPCompatibility --runtime-set testVersion 5.3-5.4 --ignore=_test/,syntax-impl.php . && cd ../../..
