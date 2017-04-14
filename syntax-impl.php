@@ -316,13 +316,10 @@ class syntax_plugin_icalevents extends syntax_plugin_icalevents_base {
                         return ((string) $event->{'RECURRENCE-ID'}) === $recurrenceId;
                     }
                 ));
-                if (!$comp || !$uid) {
-                    http_status(404);
-                    exit;
-                } else {
+                if ($comp) {
                     $renderer->doc .= $comp->serialize();
+                    $renderer->addSeenUid($uid);
                 }
-                $renderer->addSeenUid($uid);
             }
             return true;
         } else {

@@ -83,6 +83,11 @@ class renderer_plugin_icalevents extends Doku_Renderer {
     }
 
     function document_end() {
+        if (!$this->seenUids) {
+            http_status(404);
+            echo "Error: UID not found";
+            exit;
+        }
         $this->doc .= "END:VCALENDAR\r\n";
     }
 
