@@ -10,6 +10,13 @@ env:
   - DOKUWIKI=master
   - DOKUWIKI=stable
 
+# Exclude broken test
+matrix:
+  exclude:
+    - php: "7.0"
+      env: DOKUWIKI=stable
+
+
 before_install: wget https://raw.github.com/splitbrain/dokuwiki-travis/master/travis.sh
 
 install: sh travis.sh
