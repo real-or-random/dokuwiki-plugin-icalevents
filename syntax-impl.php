@@ -163,7 +163,35 @@ class syntax_plugin_icalevents extends syntax_plugin_icalevents_base {
             return false;
         }
 
-        if ($mode == 'xhtml') {
+        // Export mode
+        if ($mode == 'icalevents') {
+            $uid = rawurldecode($_GET['uid']);
+            $recurrenceId = rawurldecode($_GET['recurrence-id']);
+
+            // Make sure the sub-event is in the expanded calendar.
+            // Also, there is no need to expand more.
+            if ($dtRecurrence = DateTimeImmutable::createFromFormat('Ymd', $recurrenceId)) {
+                try {
+                    // +/- 1 day to avoid time zone weirdness
+                    $ical = $ical->expand($dtRecurrence->modify('-1 day'), $dtRecurrence->modify('+1 day'));
+                } catch (Exception $e) {
+                    $renderer->doc .= static::ERROR_PREFIX . 'Unable to expand recurrent events for export.';
+                    return false;
+                }
+            }
+
+            $comp = array_shift(array_filter($ical->getByUid($uid),
+                function($event) use ($recurrenceId) {
+                    return ((string) $event->{'RECURRENCE-ID'}) === $recurrenceId;
+                }
+            ));
+            if ($comp) {
+                $renderer->doc .= $comp->serialize();
+                $eid = $uid . ($recurrenceId ? '-' . $recurrenceId : '');
+                $renderer->setEventId($eid);
+            }
+            return (bool) $comp;
+        } else {
             // If no date/time format is requested, fall back to plugin
             // configuration ('dformat' and 'tformat'), and then to a
             // a value based on DokuWiki's defaults.
@@ -179,80 +207,86 @@ class syntax_plugin_icalevents extends syntax_plugin_icalevents_base {
                 return false;
             }
 
-            if ($events) {
-                if ($maxNumberOfEntries >= 0) {
-                    $events = array_slice($events, 0, $maxNumberOfEntries);
+            if (!$events) {
+                return true;
+            }
+
+            if ($maxNumberOfEntries >= 0) {
+                $events = array_slice($events, 0, $maxNumberOfEntries);
+            }
+
+            $dokuwikiOutput = '';
+            // loop over events and render template for each one
+            foreach ($events as &$event) {
+                // Get a copy of the template for the events
+                $eventTemplate = $template;
+
+                // {description}
+                $eventTemplate = str_replace('{description}', $this->textAsWiki($event->DESCRIPTION), $eventTemplate);
+
+                // {summary}
+                $summary = $this->textAsWiki($event->SUMMARY);
+                $eventTemplate = str_replace('{summary}', $summary, $eventTemplate);
+
+                // See if a location was set
+                $location = $event->LOCATION;
+                if ($location != '') {
+                    // {location}
+                    $eventTemplate = str_replace('{location}', $location, $eventTemplate);
+
+                    // {location_link}
+                    $locationUrl = $this->getLocationUrl($location);
+
+                    $locationLink = $locationUrl ? ('[[' . $locationUrl . '|' . $location . ']]') : $location;
+                    $eventTemplate = str_replace('{location_link}', $locationLink, $eventTemplate);
+                } else {
+                    // {location}
+                    $eventTemplate = str_replace('{location}', 'Unknown', $eventTemplate);
+                    // {location_link}
+                    $eventTemplate = str_replace('{location_link}', 'Unknown', $eventTemplate);
                 }
 
-                $dokuwikiOutput = '';
-                // loop over events and render template for each one
-                foreach ($events as &$event) {
-                    // Get a copy of the template for the events
-                    $eventTemplate = $template;
+                $dt = $this->handleDatetime($event, $dateFormat, $timeFormat);
 
-                    // {description}
-                    $eventTemplate = str_replace('{description}', $this->textAsWiki($event->DESCRIPTION), $eventTemplate);
+                $startString = $dt['start']['datestring'] . ' ' . $dt['start']['timestring'];
+                $endString = '';
+                if ($dt['end']['datestring'] != $dt['start']['datestring'] || $showEndDates) {
+                    $endString .= $dt['end']['datestring'] . ' ';
+                }
+                $endString .= $dt['end']['timestring'];
+                // Add dash only if there is end date or time
+                $whenString = $startString . ($endString ? ' - ' : '') . $endString;
 
-                    // {summary}
-                    $summary = $this->textAsWiki($event->SUMMARY);
-                    $eventTemplate = str_replace('{summary}', $summary, $eventTemplate);
+                // {date}
+                $eventTemplate = str_replace('{date}', $whenString, $eventTemplate);
+                $eventTemplate .= "\n";
 
-                    // See if a location was set
-                    $location = $event->LOCATION;
-                    if ($location != '') {
-                        // {location}
-                        $eventTemplate = str_replace('{location}', $location, $eventTemplate);
+                if ($mode == 'xhtml') {
+                    // Prepare summary link
+                    $link           = array();
+                    $link['class']  = 'mediafile plugin-icalevents-export';
+                    $link['pre']    = '';
+                    $link['suf']    = '';
+                    $link['more']   = 'rel="nofollow"';
+                    $link['target'] = '';
+                    $link['title']  = hsc($event->SUMMARY);
+                    $getParams = array(
+                        'uid' => rawurlencode($event->UID),
+                        'recurrence-id' => rawurlencode($event->{'RECURRENCE-ID'})
+                    );
+                    $link['url']    = exportlink($ID, 'icalevents', $getParams);
+                    $link['name']   = nl2br($link['title']);
 
-                        // {location_link}
-                        $locationUrl = $this->getLocationUrl($location);
-                        $locationLink = $locationUrl ? ('[[' . $locationUrl . '|' . $location . ']]') : $location;
-                        $eventTemplate = str_replace('{location_link}', $locationLink, $eventTemplate);
-                    } else {
-                        // {location}
-                        $eventTemplate = str_replace('{location}', 'Unknown', $eventTemplate);
-                        // {location_link}
-                        $eventTemplate = str_replace('{location_link}', 'Unknown', $eventTemplate);
-                    }
+                    // We add a span to be able to "inherit" from it CSS
+                    $summaryLinks[] = '<span>' . $renderer->_formatLink($link) . '</span>';
+                } else {
+                    $eventTemplate = str_replace('{summary_link}', $event->SUMMARY, $eventTemplate);
+                }
 
-                    $dt = $this->handleDatetime($event, $dateFormat, $timeFormat);
-
-                    $startString = $dt['start']['datestring'] . ' ' . $dt['start']['timestring'];
-                    $endString = '';
-                    if ($dt['end']['datestring'] != $dt['start']['datestring'] || $showEndDates) {
-                        $endString .= $dt['end']['datestring'] . ' ';
-                    }
-                    $endString .= $dt['end']['timestring'];
-                    // Add dash only if there is end date or time
-                    $whenString = $startString . ($endString ? ' - ' : '') . $endString;
-
-                    // {date}
-                    $eventTemplate = str_replace('{date}', $whenString, $eventTemplate);
-                    $eventTemplate .= "\n";
-
-                    if ($mode == 'xhtml') {
-                        // Prepare summary link
-                        $link           = array();
-                        $link['class']  = 'mediafile plugin-icalevents-export';
-                        $link['pre']    = '';
-                        $link['suf']    = '';
-                        $link['more']   = 'rel="nofollow"';
-                        $link['target'] = '';
-                        $link['title']  = hsc($event->SUMMARY);
-                        $getParams = array(
-                            'uid' => rawurlencode($event->UID),
-                            'recurrence-id' => rawurlencode($event->{'RECURRENCE-ID'})
-                        );
-                        $link['url']    = exportlink($ID, 'icalevents', $getParams);
-                        $link['name']   = nl2br($link['title']);
-
-                        $summaryLinks[] = $renderer->_formatLink($link);
-                    }
-
-                    if ($sortDescending) {
-                        $dokuwikiOutput = $eventTemplate . $dokuwikiOutput;
-                    } else {
-                        $dokuwikiOutput = $dokuwikiOutput . $eventTemplate;
-                    }
+                if ($sortDescending) {
+                    $dokuwikiOutput = $eventTemplate . $dokuwikiOutput;
+                } else {
+                    $dokuwikiOutput = $dokuwikiOutput . $eventTemplate;
                 }
             }
 
@@ -286,42 +320,13 @@ class syntax_plugin_icalevents extends syntax_plugin_icalevents_base {
                 }
             }
 
-            // Replace summary link placeholders with the entries of $summaryLinks.
-            // We handle it here, because it is raw HTML generated by us, not DokuWiki syntax.
-            $linksPerEvent = substr_count($template, '{summary_link}');
-            $renderer->doc = static::str_replace_array($summaryLinkToken , $summaryLinks, $linksPerEvent, $renderer->doc);
+            if ($mode == 'xhtml') {
+                // Replace summary link placeholders with the entries of $summaryLinks.
+                // We handle it here, because it is raw HTML generated by us, not DokuWiki syntax.
+                $linksPerEvent = substr_count($template, '{summary_link}');
+                $renderer->doc = static::str_replace_array($summaryLinkToken , $summaryLinks, $linksPerEvent, $renderer->doc);
+            }
             return true;
-
-        // Export mode
-        } elseif ($mode == 'icalevents') {
-            $uid = rawurldecode($_GET['uid']);
-            $recurrenceId = rawurldecode($_GET['recurrence-id']);
-
-            // Make sure the sub-event is in the expanded calendar.
-            // Also, there is no need to expand more.
-            if ($dtRecurrence = DateTimeImmutable::createFromFormat('Ymd', $recurrenceId)) {
-                try {
-                    // +/- 1 day to avoid time zone weirdness
-                    $ical = $ical->expand($dtRecurrence->modify('-1 day'), $dtRecurrence->modify('+1 day'));
-                } catch (Exception $e) {
-                    $renderer->doc .= static::ERROR_PREFIX . 'Unable to expand recurrent events for export.';
-                    return false;
-                }
-            }
-
-            $comp = array_shift(array_filter($ical->getByUid($uid),
-                function($event) use ($recurrenceId) {
-                    return ((string) $event->{'RECURRENCE-ID'}) === $recurrenceId;
-                }
-            ));
-            if ($comp) {
-                $renderer->doc .= $comp->serialize();
-                $eid = $uid . ($recurrenceId ? '-' . $recurrenceId : '');
-                $renderer->setEventId($eid);
-            }
-            return (bool) $comp;
-        } else {
-            return false;
         }
     }
 
