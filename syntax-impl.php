@@ -232,8 +232,7 @@ class syntax_plugin_icalevents extends syntax_plugin_icalevents_base {
                     if ($mode == 'xhtml') {
                         // Prepare summary link
                         $link           = array();
-                        $link['class']  = 'mediafile';
-                        $link['style']  = 'background-image: url(lib/plugins/icalevents/ics.png);';
+                        $link['class']  = 'mediafile plugin-icalevents-export';
                         $link['pre']    = '';
                         $link['suf']    = '';
                         $link['more']   = 'rel="nofollow"';
