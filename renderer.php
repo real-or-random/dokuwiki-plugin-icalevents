@@ -72,8 +72,8 @@ class renderer_plugin_icalevents extends Doku_Renderer {
 
         $filename =  SafeFN::encode(strtr($ID, '/:', '--')) . '.ics';
         $headers = array(
-            'Content-Type:' => 'text/calendar',
-            'Content-Disposition:' => 'attachment; filename=' . $filename
+            'Content-Type' => 'text/calendar',
+            'Content-Disposition' => 'attachment; filename=' . $filename
         );
         p_set_metadata($ID, array('format' => array('icalevents' => $headers)));
 
