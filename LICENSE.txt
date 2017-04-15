@@ -1,13 +1,9 @@
 The DokuWiki iCalEvents plugin is free software: you can redistribute
 it and/or modify it under the terms of the GNU General Public License
 version 2 (see below).
-This does not hold for the iCalcreator library, which is shipped
-together with the plugin. The iCalcreator library is also free
-software; but licensed under the GNU Lesser General Public License as
-published by the Free Software Foundation; either version 2.1 of the
-License, or (at your option) any later version. See the files
-iCalcreator.class.php and lgpl.txt in the subdirectory
-externals/iCalcreator/ for details.
+This does not hold for the libraries in directory "vendor". See the
+LICENSE file in the corresponding subdirectory within the directory
+"vendor" for details.
 
 
                     GNU GENERAL PUBLIC LICENSE

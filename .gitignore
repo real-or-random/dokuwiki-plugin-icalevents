@@ -2,3 +2,6 @@
 # https://www.dokuwiki.org/devel:plugin_file_structure#don_t_include_plugin_manager_files
 /disabled
 /manager.dat
+
+# composer
+/vendor

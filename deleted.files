@@ -1,0 +1,30 @@
+# This is a list of files that were present in previous plugin releases
+# but were removed later. An up to date plugin should not have any of
+# the files installed
+
+externals/iCalcreator/releaseNotes-2.22
+externals/iCalcreator/lib/vtodo.class.php
+externals/iCalcreator/lib/vtimezone.class.php
+externals/iCalcreator/lib/vjournal.class.php
+externals/iCalcreator/lib/vfreebusy.class.php
+externals/iCalcreator/lib/vevent.class.php
+externals/iCalcreator/lib/vcalendar.class.php
+externals/iCalcreator/lib/valarm.class.php
+externals/iCalcreator/lib/iCaldateTime.class.php
+externals/iCalcreator/lib/iCalUtilityFunctions.class.php
+externals/iCalcreator/lib/iCalBase.class.php
+externals/iCalcreator/lib/iCal.vCard.inc.php
+externals/iCalcreator/lib/iCal.tz.inc.php
+externals/iCalcreator/lib/iCal.XML.inc.php
+externals/iCalcreator/lib/calendarComponent.class.php
+externals/iCalcreator/lib
+externals/iCalcreator/iCalcreator.php
+externals/iCalcreator/docs/using.html
+externals/iCalcreator/docs/summary.html
+externals/iCalcreator/docs/lgpl.txt
+externals/iCalcreator/docs
+externals/iCalcreator/composer.json
+externals/iCalcreator/README.txt
+externals/iCalcreator
+externals/
+
