@@ -52,55 +52,53 @@ class renderer_plugin_icalevents extends Doku_Renderer {
         'toc'   => false
     );
 
-    // Already output UIDs.
-    // This is necessary to avoid duplicate VEVENTs in the output.
-    private $seenUids = array();
+    private $eventId = false;
 
     function getFormat() {
         return 'icalevents';
     }
 
     function plugin($name, $data, $state = '', $match = '') {
-        // filter syntax plugins that are not our own syntax plugin
-        if ($name == 'icalevents') {
+        // Filter syntax plugins that are not our own syntax plugin,
+        // and stop processing if we have exported an event already.
+        // This is necessary to avoid duplicate VEVENTs in the output,
+        // which arise when displaying the same calendar multiple times on the same page.
+        if ($name == 'icalevents' && $this->eventId === false) {
             return parent::plugin($name, $data, $state, $match);
         }
     }
 
     function document_start() {
-        global $ID;
-
-        $filename =  SafeFN::encode(strtr($ID, '/:', '--')) . '.ics';
-        $headers = array(
-            'Content-Type' => 'text/calendar',
-            'Content-Disposition' => 'attachment; filename=' . $filename
-        );
-        p_set_metadata($ID, array('format' => array('icalevents' => $headers)));
-
         $this->doc = "BEGIN:VCALENDAR\r\n";
         $this->doc .= "PRODID: -//DokuWiki//NONSGML Plugin iCalEvents//EN" . "\r\n";
         $this->doc .= "VERSION:2.0\r\n";
     }
 
     function document_end() {
-        if (!$this->seenUids) {
+        global $ID;
+
+        if ($this->eventId === false) {
             http_status(404);
             echo "Error: UID not found";
             exit;
         }
+
+        $filename =  SafeFN::encode(strtr($this->eventId, '/:', '--')) . '.ics';
+        $headers = array(
+            'Content-Type' => 'text/calendar',
+            'Content-Disposition' => 'attachment; filename=' . $filename
+        );
+        p_set_metadata($ID, array('format' => array('icalevents' => $headers)));
+
         $this->doc .= "END:VCALENDAR\r\n";
     }
 
-    function hasSeenUid($uid) {
-        return in_array($uid, $this->seenUids);
-    }
-
-    function addSeenUid($uid) {
-        $this->seenUids[] = $uid;
+    function setEventId($eventId) {
+        $this->eventId = $eventId;
     }
 
     function reset() {
-        $this->seenUids = array();
+        $this->eventId = false;
     }
 
     // Instantiating the class several times is not necessary,

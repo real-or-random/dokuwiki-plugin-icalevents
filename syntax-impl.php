@@ -309,18 +309,17 @@ class syntax_plugin_icalevents extends syntax_plugin_icalevents_base {
                 }
             }
 
-            if (!$renderer->hasSeenUid($uid)) {
-                $comp = array_shift(array_filter($ical->getByUid($uid),
-                    function($event) use ($recurrenceId) {
-                        return ((string) $event->{'RECURRENCE-ID'}) === $recurrenceId;
-                    }
-                ));
-                if ($comp) {
-                    $renderer->doc .= $comp->serialize();
-                    $renderer->addSeenUid($uid);
+            $comp = array_shift(array_filter($ical->getByUid($uid),
+                function($event) use ($recurrenceId) {
+                    return ((string) $event->{'RECURRENCE-ID'}) === $recurrenceId;
                 }
+            ));
+            if ($comp) {
+                $renderer->doc .= $comp->serialize();
+                $eid = $uid . ($recurrenceId ? '-' . $recurrenceId : '');
+                $renderer->setEventId($eid);
             }
-            return true;
+            return (bool) $comp;
         } else {
             return false;
         }
