@@ -29,6 +29,10 @@
  *
  */
 
+// must be run within Dokuwiki
+if (!defined('DOKU_INC'))
+    die();
+
 if (!defined('DOKU_PLUGIN'))
     define('DOKU_PLUGIN', DOKU_INC . 'lib/plugins/');
 
@@ -73,8 +77,8 @@ class syntax_plugin_icalevents_base extends DokuWiki_Syntax_Plugin {
 
 
 // An 'require' ensures that older PHP versions do not even try to parse the actual code.
-if (version_compare(PHP_VERSION, '5.5.0') >= 0) {
-    require 'syntax-impl.php';
+if (PHP_VERSION_ID >= 50500) {
+    require __DIR__ . '/syntax-impl.php';
 } else {
     class syntax_plugin_icalevents extends syntax_plugin_icalevents_base {
     }
