@@ -16,7 +16,9 @@ env:
 
 before_install: wget https://raw.github.com/splitbrain/dokuwiki-travis/master/travis.sh
 
-install: sh travis.sh
+install:
+  - sh travis.sh
+  - cd lib/plugins/icalevents && composer install && cd ../../..
 
 before_script:
   # Get latest release of PHP_CodeSniffer
@@ -37,5 +39,6 @@ before_script:
 
 script:
   - cd _test && phpunit --stderr --group plugin_icalevents && cd ..
-  - cd lib/plugins/icalevents && /tmp/phpcs.phar --standard=PHPCompatibility --runtime-set testVersion 5.5-7.0 --ignore=_test/ . && cd ../../..
-  - cd lib/plugins/icalevents && /tmp/phpcs.phar --standard=PHPCompatibility --runtime-set testVersion 5.3-5.4 --ignore=_test/,syntax-impl.php . && cd ../../..
+    # Ignore SplitTest.php. It's a false positive; PHPCompatibility does not understand namespaces.
+  - cd $TRAVIS_BUILD_DIR/lib/plugins/icalevents && /tmp/phpcs.phar --standard=PHPCompatibility --runtime-set testVersion 5.5-7.0 --ignore=_test/,vendor/sabre/uri/tests/SplitTest.php .
+  - cd $TRAVIS_BUILD_DIR/lib/plugins/icalevents && /tmp/phpcs.phar --standard=PHPCompatibility --runtime-set testVersion 5.3-5.4 --ignore=_test/,syntax-impl.php,vendor/ .
