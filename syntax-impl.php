@@ -207,15 +207,23 @@ class syntax_plugin_icalevents extends syntax_plugin_icalevents_base {
             $timeFormat = $tformat ?: $this->getConf('tformat') ?: '%H:%M';
 
             try {
-                $events = $ical->expand($from, $to)->VEVENT;
+                // We need an instance of ArrayIterator, which supports sorting.
+                $events = $ical->expand($from, $to)->VEVENT->getIterator();
             } catch (Exception $e) {
                 $renderer->doc .= static::ERROR_PREFIX . 'unable to expand recurrent events. ';
                 return false;
             }
 
-            if (!$events) {
+            if (!$events->valid()) {
                 return true;
             }
+
+            $events->uasort(
+                function($e1, $e2) {
+                    return $e1->DTSTART->getDateTime($this->localTimezone)->getTimestamp()
+                             - $e2->DTSTART->getDateTime($this->localTimezone)->getTimestamp();
+                }
+            );
 
             if ($maxNumberOfEntries >= 0) {
                 $events = array_slice($events, 0, $maxNumberOfEntries);
