@@ -91,12 +91,21 @@ class syntax_plugin_icalevents extends syntax_plugin_icalevents_base {
             $template = $this->getConf('default');
         }
 
-        // Find out if the events should be sorted in reserve
-        $sortDescending = (mb_strtolower($params['sort']) == 'desc');
+        // Sorting
+        switch (mb_strtolower($params['sort'])) {
+            case 'desc':
+                $order = -1;
+                break;
+            case 'off':
+                $order = 0;
+                break;
+            default:
+                $order = 1;
+        }
 
         $fromString = $params['from'];
 
-        // handle deprecated previewDays parameter
+        // Handle deprecated previewDays parameter
         if (isset($params['previewDays']) && !isset($params['to'])) {
             $toString = '+' . $params['previewDays'] . ' days';
         } else {
@@ -119,7 +128,7 @@ class syntax_plugin_icalevents extends syntax_plugin_icalevents_base {
             $maxNumberOfEntries,
             $showEndDates,
             $template,
-            $sortDescending,
+            $order,
             hsc($params['dformat']),
             hsc($params['tformat'])
         );
@@ -134,7 +143,7 @@ class syntax_plugin_icalevents extends syntax_plugin_icalevents_base {
             $maxNumberOfEntries,
             $showEndDates,
             $template,
-            $sortDescending,
+            $order,
             $dformat,
             $tformat
           ) = $data;
@@ -216,14 +225,16 @@ class syntax_plugin_icalevents extends syntax_plugin_icalevents_base {
                 return true;
             }
 
-            $events->uasort(
-                 function(&$e1, &$e2) use ($sortDescending) {
-                    $diff = $e1->DTSTART->getDateTime($this->localTimezone)->getTimestamp()
-                      - $e2->DTSTART->getDateTime($this->localTimezone)->getTimestamp();
-                    $sign = -(2 * (int) $sortDescending - 1);
-                    return $sign * $diff;
-                }
-            );
+            // Sort if desired
+            if ($order != 0) {
+                $events->uasort(
+                     function(&$e1, &$e2) use ($order) {
+                        $diff = $e1->DTSTART->getDateTime($this->localTimezone)->getTimestamp()
+                          - $e2->DTSTART->getDateTime($this->localTimezone)->getTimestamp();
+                        return $order * $diff;
+                    }
+                );
+            }
 
             // Loop over events and render template for each one.
             $dokuwikiOutput = '';
