@@ -70,14 +70,14 @@ class syntax_plugin_icalevents extends syntax_plugin_icalevents_base {
 
         // maxNumberOfEntries was called numberOfEntries earlier.
         // We support both versions for backwards compatibility.
-        $maxNumberOfEntries = (int) ($params['maxNumberOfEntries'] ?: ($params['numberOfEntries'] ?: -1));
+        $maxNumberOfEntries = (int) ($params['maxNumberOfEntries'] ?: ($params['numberOfEntries'] ?: PHP_INT_MAX));
 
         $showEndDates = filter_var($params['showEndDates'], FILTER_VALIDATE_BOOLEAN);
 
         if ($params['showAs']) {
             $showAs = $params['showAs'];
         } else {
-            // Backward compatibility of v1.3 or earlier
+            // BackwardEvent compatibility of v1.3 or earlier
             if (filter_var($params['showAsList'], FILTER_VALIDATE_BOOLEAN)) {
                 $showAs = 'list';
             } else {
@@ -126,8 +126,6 @@ class syntax_plugin_icalevents extends syntax_plugin_icalevents_base {
     }
 
     function render($mode, Doku_Renderer $renderer, $data) {
-        global $ID;
-
         list(
             $source,
             $fromString,
@@ -219,89 +217,25 @@ class syntax_plugin_icalevents extends syntax_plugin_icalevents_base {
             }
 
             $events->uasort(
-                function($e1, $e2) {
-                    return $e1->DTSTART->getDateTime($this->localTimezone)->getTimestamp()
-                             - $e2->DTSTART->getDateTime($this->localTimezone)->getTimestamp();
+                 function(&$e1, &$e2) use ($sortDescending) {
+                    $diff = $e1->DTSTART->getDateTime($this->localTimezone)->getTimestamp()
+                      - $e2->DTSTART->getDateTime($this->localTimezone)->getTimestamp();
+                    $sign = -(2 * (int) $sortDescending - 1);
+                    return $sign * $diff;
                 }
             );
 
-            if ($maxNumberOfEntries >= 0) {
-                $events = array_slice($events, 0, $maxNumberOfEntries);
-            }
-
+            // Loop over events and render template for each one.
             $dokuwikiOutput = '';
-            // loop over events and render template for each one
+            $i = 0;
             foreach ($events as &$event) {
-                // Get a copy of the template for the events
-                $eventTemplate = $template;
-
-                // {description}
-                $eventTemplate = str_replace('{description}', $this->textAsWiki($event->DESCRIPTION), $eventTemplate);
-
-                // {summary}
-                $summary = $this->textAsWiki($event->SUMMARY);
-                $eventTemplate = str_replace('{summary}', $summary, $eventTemplate);
-
-                // See if a location was set
-                $location = $event->LOCATION;
-                if ($location != '') {
-                    // {location}
-                    $eventTemplate = str_replace('{location}', $location, $eventTemplate);
-
-                    // {location_link}
-                    $locationUrl = $this->getLocationUrl($location);
-
-                    $locationLink = $locationUrl ? ('[[' . $locationUrl . '|' . $location . ']]') : $location;
-                    $eventTemplate = str_replace('{location_link}', $locationLink, $eventTemplate);
-                } else {
-                    // {location}
-                    $eventTemplate = str_replace('{location}', 'Unknown', $eventTemplate);
-                    // {location_link}
-                    $eventTemplate = str_replace('{location_link}', 'Unknown', $eventTemplate);
+                if ($i++ >= $maxNumberOfEntries) {
+                    break;
                 }
 
-                $dt = $this->handleDatetime($event, $dateFormat, $timeFormat);
-
-                $startString = $dt['start']['datestring'] . ' ' . $dt['start']['timestring'];
-                $endString = '';
-                if ($dt['end']['datestring'] != $dt['start']['datestring'] || $showEndDates) {
-                    $endString .= $dt['end']['datestring'] . ' ';
-                }
-                $endString .= $dt['end']['timestring'];
-                // Add dash only if there is end date or time
-                $whenString = $startString . ($endString ? ' - ' : '') . $endString;
-
-                // {date}
-                $eventTemplate = str_replace('{date}', $whenString, $eventTemplate);
-                $eventTemplate .= "\n";
-
-                if ($mode == 'xhtml') {
-                    // Prepare summary link
-                    $link           = array();
-                    $link['class']  = 'mediafile plugin-icalevents-export';
-                    $link['pre']    = '';
-                    $link['suf']    = '';
-                    $link['more']   = 'rel="nofollow"';
-                    $link['target'] = '';
-                    $link['title']  = hsc($event->SUMMARY);
-                    $getParams = array(
-                        'uid' => rawurlencode($event->UID),
-                        'recurrence-id' => rawurlencode($event->{'RECURRENCE-ID'})
-                    );
-                    $link['url']    = exportlink($ID, 'icalevents', $getParams);
-                    $link['name']   = nl2br($link['title']);
-
-                    // We add a span to be able to "inherit" from it CSS
-                    $summaryLinks[] = '<span>' . $renderer->_formatLink($link) . '</span>';
-                } else {
-                    $eventTemplate = str_replace('{summary_link}', $event->SUMMARY, $eventTemplate);
-                }
-
-                if ($sortDescending) {
-                    $dokuwikiOutput = $eventTemplate . $dokuwikiOutput;
-                } else {
-                    $dokuwikiOutput = $dokuwikiOutput . $eventTemplate;
-                }
+                list($output, $summaryLinks[])
+                    = $this->renderEvent($mode, $renderer, $event, $template, $dateFormat, $timeFormat);
+                $dokuwikiOutput .= $output;
             }
 
             // Replace {summary_link}s by placeholders containing our nonce and
@@ -342,6 +276,84 @@ class syntax_plugin_icalevents extends syntax_plugin_icalevents_base {
             }
             return true;
         }
+    }
+
+    /**
+     * Render a VEVENT
+     *
+     * @param string $mode rendering mode, e.g., 'xhtml'
+     * @param Doku_Renderer $renderer
+     * @param Sabre\VObject\Component\VEvent $event
+     * @param string $template
+     * @param string $dateFormat
+     * @param string $timeFormat
+     * @return string[] an array containing the modified template at first position
+     *         and the formatted summary link at second position
+     */
+    function renderEvent($mode, Doku_Renderer $renderer, $event, $template, $dateFormat, $timeFormat) {
+        // {description}
+        $template = str_replace('{description}', $this->textAsWiki($event->DESCRIPTION), $template);
+
+        // {summary}
+        $summary = $this->textAsWiki($event->SUMMARY);
+        $template = str_replace('{summary}', $summary, $template);
+
+        // See if a location was set
+        $location = $event->LOCATION;
+        if ($location != '') {
+            // {location}
+            $template = str_replace('{location}', $location, $template);
+
+            // {location_link}
+            $locationUrl = $this->getLocationUrl($location);
+
+            $locationLink = $locationUrl ? ('[[' . $locationUrl . '|' . $location . ']]') : $location;
+            $template = str_replace('{location_link}', $locationLink, $template);
+        } else {
+            // {location}
+            $template = str_replace('{location}', 'Unknown', $template);
+            // {location_link}
+            $template = str_replace('{location_link}', 'Unknown', $template);
+        }
+
+        $dt = $this->handleDatetime($event, $dateFormat, $timeFormat);
+
+        $startString = $dt['start']['datestring'] . ' ' . $dt['start']['timestring'];
+        $endString = '';
+        if ($dt['end']['datestring'] != $dt['start']['datestring'] || $showEndDates) {
+            $endString .= $dt['end']['datestring'] . ' ';
+        }
+        $endString .= $dt['end']['timestring'];
+        // Add dash only if there is end date or time
+        $whenString = $startString . ($endString ? ' - ' : '') . $endString;
+
+        // {date}
+        $template = str_replace('{date}', $whenString, $template);
+        $template .= "\n";
+
+        if ($mode == 'xhtml') {
+            // Prepare summary link
+            $link           = array();
+            $link['class']  = 'mediafile plugin-icalevents-export';
+            $link['pre']    = '';
+            $link['suf']    = '';
+            $link['more']   = 'rel="nofollow"';
+            $link['target'] = '';
+            $link['title']  = hsc($event->SUMMARY);
+            $getParams = array(
+                'uid' => rawurlencode($event->UID),
+                'recurrence-id' => rawurlencode($event->{'RECURRENCE-ID'})
+            );
+            $link['url']    = exportlink($GLOBALS['ID'], 'icalevents', $getParams);
+            $link['name']   = nl2br($link['title']);
+
+            // We add a span to be able to "inherit" from it CSS
+            $summaryLink = '<span>' . $renderer->_formatLink($link) . '</span>';
+        } else {
+            $template = str_replace('{summary_link}', $event->SUMMARY, $template);
+            $summaryLink = '';
+        }
+        return array($template, $summaryLink);
     }
 
     /**
