@@ -94,6 +94,8 @@ class syntax_plugin_icalevents extends syntax_plugin_icalevents_base {
         // Find out if the events should be sorted in reserve
         $sortDescending = (mb_strtolower($params['sort']) == 'desc');
 
+        $fromString = $params['from'];
+
         // handle deprecated previewDays parameter
         if (isset($params['previewDays']) && !isset($params['to'])) {
             $toString = '+' . $params['previewDays'] . ' days';
@@ -101,10 +103,19 @@ class syntax_plugin_icalevents extends syntax_plugin_icalevents_base {
             $toString = $params['to'];
         }
 
+        if ($toString) {
+            $hasRelativeRange = static::isRelativeDateTimeString($fromString)
+                 || static::isRelativeDateTimeString($toString);
+        } else {
+            $toString = $toString ?: '+30 days';
+            $hasRelativeRange = true;
+        }
+
         return array(
             $source,
-            $params['from'],
+            $fromString,
             $toString,
+            $hasRelativeRange,
             $maxNumberOfEntries,
             $showEndDates,
             $template,
@@ -121,6 +132,7 @@ class syntax_plugin_icalevents extends syntax_plugin_icalevents_base {
             $source,
             $fromString,
             $toString,
+            $hasRelativeRange,
             $maxNumberOfEntries,
             $showEndDates,
             $template,
@@ -129,12 +141,6 @@ class syntax_plugin_icalevents extends syntax_plugin_icalevents_base {
             $tformat
           ) = $data;
 
-        if ($toString) {
-            $hasRelativeRange = static::isRelativeDateTimeString($fromString)
-                 || static::isRelativeDateTimeString($toString);
-        } else {
-            $toString = $toString ?: '+30 days';
-        }
         // TODO error handling for invalid strings
         $from = new DateTime($fromString);
         $to = new DateTime($toString);
