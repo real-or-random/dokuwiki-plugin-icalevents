@@ -38,7 +38,7 @@ if (!defined('DOKU_PLUGIN'))
 
 require_once DOKU_PLUGIN . 'syntax.php';
 
-// We require at least PHP 5.5.
+// We require at least PHP 5.5.5.
 // The following base class implements just the basics and an error message for older PHP versions.
 // Then we define the actual class by extending the base class depending on the PHP version.
 
@@ -70,14 +70,14 @@ class syntax_plugin_icalevents_base extends DokuWiki_Syntax_Plugin {
     }
 
     function render($mode, Doku_Renderer $renderer, $data) {
-        $renderer->doc .= static::ERROR_PREFIX . 'The plugin requires at least PHP 5.5.';
+        $renderer->doc .= static::ERROR_PREFIX . 'The plugin requires at least PHP 5.5.5.';
         return false;
     }
 }
 
 
 // An 'require' ensures that older PHP versions do not even try to parse the actual code.
-if (PHP_VERSION_ID >= 50500) {
+if (PHP_VERSION_ID >= 50505) {
     require __DIR__ . '/syntax-impl.php';
 } else {
     class syntax_plugin_icalevents extends syntax_plugin_icalevents_base {
