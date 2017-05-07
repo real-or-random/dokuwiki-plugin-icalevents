@@ -7,6 +7,6 @@ all:
 
 dist:
 	git archive HEAD -o $(package_name)-$(version).zip
-	composer install --ignore-platform-reqs --no-dev
+	composer install --no-dev
 	rm -rf vendor/bin
 	zip -r $(package_name)-$(version).zip vendor

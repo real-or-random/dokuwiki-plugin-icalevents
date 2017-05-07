@@ -18,21 +18,16 @@ before_install: wget https://raw.github.com/splitbrain/dokuwiki-travis/master/tr
 
 install:
   - sh travis.sh
-  - cd lib/plugins/icalevents && composer install && cd ../../..
+  - cd lib/plugins/icalevents && composer install --no-interaction && cd ../../..
 
 before_script:
-  # Get latest release of PHP_CodeSniffer
-  - cd /tmp
-  - wget https://squizlabs.github.io/PHP_CodeSniffer/phpcs.phar
-  - chmod +x phpcs.phar
-
   # Get latest release of PHPCompatibility
   - git clone -b master https://github.com/wimg/PHPCompatibility.git /tmp/phpcs-extra/PHPCompatibility
   - cd /tmp/phpcs-extra/PHPCompatibility
   - git checkout $(git describe --tags `git rev-list --tags --max-count=1`) # Checkout latest tag
 
   - cd $TRAVIS_BUILD_DIR
-  - /tmp/phpcs.phar --config-set installed_paths /tmp/phpcs-extra
+  - lib/plugins/icalevents/vendor/bin/phpcs --config-set installed_paths /tmp/phpcs-extra
 
     # A time zone without daylight saving time for simplified testing (UTC+09:00)
   - echo 'date.timezone = "Asia/Tokyo"' >> ~/.phpenv/versions/$(phpenv version-name)/etc/conf.d/travis.ini
@@ -40,5 +35,5 @@ before_script:
 script:
   - cd _test && phpunit --stderr --group plugin_icalevents && cd ..
     # Ignore SplitTest.php. It's a false positive; PHPCompatibility does not understand namespaces.
-  - cd $TRAVIS_BUILD_DIR/lib/plugins/icalevents && /tmp/phpcs.phar --standard=PHPCompatibility --runtime-set testVersion 5.5-7.0 --ignore=_test/,vendor/sabre/uri/tests/SplitTest.php .
-  - cd $TRAVIS_BUILD_DIR/lib/plugins/icalevents && /tmp/phpcs.phar --standard=PHPCompatibility --runtime-set testVersion 5.3-5.4 --ignore=_test/,syntax-impl.php,vendor/ .
+  - cd $TRAVIS_BUILD_DIR/lib/plugins/icalevents && ./vendor/bin/phpcs --standard=PHPCompatibility --runtime-set testVersion 5.5-7.0 --ignore=_test/,vendor/sabre/uri/tests/SplitTest.php .
+  - cd $TRAVIS_BUILD_DIR/lib/plugins/icalevents && ./vendor/bin/phpcs --standard=PHPCompatibility --runtime-set testVersion 5.3-5.4 --ignore=_test/,syntax-impl.php,vendor/ .

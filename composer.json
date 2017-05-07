@@ -6,5 +6,8 @@
     },
     "require": {
         "sabre/vobject": "~4.1"
+    },
+    "require-dev": {
+        "squizlabs/php_codesniffer": "~2"
     }
 }
