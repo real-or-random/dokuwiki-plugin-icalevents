@@ -148,9 +148,13 @@ class syntax_plugin_icalevents extends syntax_plugin_icalevents_base {
             $tformat
           ) = $data;
 
-        // TODO error handling for invalid strings
-        $from = new DateTime($fromString);
-        $to = new DateTime($toString);
+        try {
+            $from = new DateTime($fromString);
+            $to = new DateTime($toString);
+        } catch (Exception $e) {
+            $renderer->doc .= static::ERROR_PREFIX . 'invalid date/time string: '. $e->getMessage() . '.';
+            return false;
+        }
 
         try {
             $content = static::readSource($source);
