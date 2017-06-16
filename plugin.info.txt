@@ -1,7 +1,7 @@
 base   icalevents
 author Tim Ruffing, Robert Rackl, Elan Ruusamäe, Jannes Drost-Tenfelde
 email  tim@timruffing.de
-date   2017-05-07
+date   2017-06-16
 name   iCalEvents
 desc   Displays a calendar in iCalendar format according to a template
 url    http://www.dokuwiki.org/plugin:icalevents
