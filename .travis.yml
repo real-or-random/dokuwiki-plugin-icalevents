@@ -27,7 +27,7 @@ before_script:
   - git checkout $(git describe --tags `git rev-list --tags --max-count=1`) # Checkout latest tag
 
   - cd $TRAVIS_BUILD_DIR
-  - lib/plugins/icalevents/vendor/bin/phpcs --config-set installed_paths /tmp/phpcs-extra
+  - lib/plugins/icalevents/vendor/bin/phpcs --config-set installed_paths /tmp/phpcs-extra/PHPCompatibility
 
     # A time zone without daylight saving time for simplified testing (UTC+09:00)
   - echo 'date.timezone = "Asia/Tokyo"' >> ~/.phpenv/versions/$(phpenv version-name)/etc/conf.d/travis.ini
